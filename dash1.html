@@ -63,16 +63,17 @@
       border: 3px solid #00ddeb;
       box-shadow: 0 0 30px #00ddeb;
       background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="600"><rect width="100%" height="100%" fill="transparent"/><g fill="none" stroke="#00ddeb" stroke-width="1" opacity="0.2"><circle cx="100" cy="100" r="50"/><circle cx="300" cy="500" r="70"/><path d="M0 200 H400 M0 400 H400"/></g></svg>');
+      display: none;
     }
-    #score, #highScore, #startMessage {
+    #score, #highScore, #startMessage, #levelMenu, #changeDifficultyButton {
       position: absolute;
       color: #00ddeb;
       font-size: 20px;
       text-shadow: 0 0 15px #00ddeb;
       user-select: none;
     }
-    #score { top: 10px; left: 10px; }
-    #highScore { top: 40px; left: 10px; }
+    #score { top: 10px; left: 10px; display: none; }
+    #highScore { top: 40px; left: 10px; display: none; }
     #startMessage {
       top: 50%;
       left: 50%;
@@ -83,6 +84,55 @@
       padding: 20px;
       border-radius: 10px;
       box-shadow: 0 0 20px #00ddeb;
+      display: none;
+    }
+    #levelMenu {
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      background: rgba(0, 29, 61, 0.7);
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 0 20px #00ddeb;
+    }
+    #changeDifficultyButton {
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 10px 20px;
+      font-size: 16px;
+      color: #ff2e63;
+      background: transparent;
+      border: 2px solid #ff2e63;
+      border-radius: 5px;
+      text-shadow: 0 0 10px #ff2e63;
+      cursor: pointer;
+      transition: all 0.3s;
+      display: none;
+    }
+    #changeDifficultyButton:hover {
+      background: #ff2e63;
+      color: #0d1b2a;
+      box-shadow: 0 0 15px #ff2e63;
+    }
+    .levelButton {
+      display: block;
+      margin: 10px auto;
+      padding: 10px 20px;
+      font-size: 20px;
+      color: #ff2e63;
+      background: transparent;
+      border: 2px solid #ff2e63;
+      border-radius: 5px;
+      text-shadow: 0 0 10px #ff2e63;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    .levelButton:hover {
+      background: #ff2e63;
+      color: #0d1b2a;
+      box-shadow: 0 0 15px #ff2e63;
     }
     #gameLink {
       position: absolute;
@@ -109,6 +159,9 @@
       }
       #score, #highScore { font-size: 16px; }
       #startMessage { font-size: 20px; padding: 15px; }
+      #levelMenu { font-size: 20px; padding: 15px; }
+      .levelButton { font-size: 16px; padding: 8px 16px; }
+      #changeDifficultyButton { font-size: 14px; padding: 8px 16px; }
       #gameLink { font-size: 14px; padding: 3px 8px; }
     }
     @keyframes pulse {
@@ -116,7 +169,7 @@
       50% { opacity: 1; }
       100% { opacity: 0.6; }
     }
-    #startMessage { animation: pulse 2s infinite; }
+    #startMessage, #levelMenu, #changeDifficultyButton { animation: pulse 2s infinite; }
   </style>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
 </head>
@@ -126,12 +179,24 @@
   <div id="score">Score: 0</div>
   <div id="highScore">High Score: 0</div>
   <div id="startMessage">Tap or Press SPACE to Start</div>
+  <div id="levelMenu">
+    <h2>Select Difficulty</h2>
+    <button class="levelButton" id="easyButton">Easy</button>
+    <button class="levelButton" id="mediumButton">Medium</button>
+    <button class="levelButton" id="hardButton">Hard</button>
+  </div>
+  <button id="changeDifficultyButton">Change Difficulty</button>
   <script>
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const scoreDisplay = document.getElementById('score');
     const highScoreDisplay = document.getElementById('highScore');
     const startMessage = document.getElementById('startMessage');
+    const levelMenu = document.getElementById('levelMenu');
+    const changeDifficultyButton = document.getElementById('changeDifficultyButton');
+    const easyButton = document.getElementById('easyButton');
+    const mediumButton = document.getElementById('mediumButton');
+    const hardButton = document.getElementById('hardButton');
 
     function resizeCanvas() {
       const maxWidth = window.innerWidth * 0.9;
@@ -145,9 +210,13 @@
       }
       canvas.width = width;
       canvas.height = height;
+      bird.x = canvas.width * 0.25;
+      bird.y = canvas.height / 2;
+      bird.radius = canvas.width * 0.04;
+      pipeWidth = canvas.width * 0.15;
+      pipeGap = difficultySettings[difficulty].pipeGap * canvas.height;
+      console.log(`Canvas resized: ${width}x${height}, Difficulty: ${difficulty}, Pipe Gap: ${pipeGap}`);
     }
-    resizeCanvas();
-    window.addEventListener('resize', resizeCanvas);
 
     let bird = {
       x: canvas.width * 0.25,
@@ -163,11 +232,31 @@
     let highScore = localStorage.getItem('highScore') || 0;
     let gameStarted = false;
     let gameOver = false;
-    const pipeWidth = canvas.width * 0.15;
-    const pipeGap = canvas.height * 0.3;
-    const pipeSpeed = 1.5;
+    let gamePaused = false;
+    let pipeWidth = canvas.width * 0.15;
+    let pipeGap = 0.3 * canvas.height;
+    let pipeSpeed = 1.5;
     let pipeFrequency = 120;
     let frameCount = 0;
+    let difficulty = 'medium';
+
+    const difficultySettings = {
+      easy: {
+        pipeGap: 0.4,
+        pipeSpeed: 1.0,
+        pipeFrequency: 150
+      },
+      medium: {
+        pipeGap: 0.3,
+        pipeSpeed: 1.5,
+        pipeFrequency: 120
+      },
+      hard: {
+        pipeGap: 0.25,
+        pipeSpeed: 2.0,
+        pipeFrequency: 90
+      }
+    };
 
     highScoreDisplay.textContent = `High Score: ${highScore}`;
 
@@ -194,7 +283,7 @@
     }
 
     function updateBird() {
-      if (gameStarted) {
+      if (gameStarted && !gamePaused) {
         bird.velocity += bird.gravity;
         bird.y += bird.velocity;
         if (bird.y + bird.radius > canvas.height * 0.95 || bird.y - bird.radius < canvas.height * 0.05) {
@@ -204,10 +293,11 @@
     }
 
     function updatePipes() {
-      if (gameStarted) {
+      if (gameStarted && !gamePaused) {
         if (frameCount % pipeFrequency === 0) {
           let topHeight = Math.random() * (canvas.height - pipeGap - canvas.height * 0.2) + canvas.height * 0.1;
           pipes.push({ x: canvas.width, top: topHeight, scored: false });
+          console.log(`New pipe added, Top: ${topHeight}, Gap: ${pipeGap}, Difficulty: ${difficulty}`);
         }
         pipes.forEach(pipe => {
           pipe.x -= pipeSpeed;
@@ -220,8 +310,8 @@
             scoreDisplay.textContent = `Score: ${score}`;
           }
         });
+      }
     }
-}
 
     function checkCollision() {
       pipes.forEach(pipe => {
@@ -243,7 +333,37 @@
       scoreDisplay.textContent = `Score: ${score}`;
       gameStarted = false;
       gameOver = false;
+      gamePaused = false;
+      pipeGap = difficultySettings[difficulty].pipeGap * canvas.height;
+      pipeSpeed = difficultySettings[difficulty].pipeSpeed;
+      pipeFrequency = difficultySettings[difficulty].pipeFrequency;
       startMessage.style.display = 'block';
+      console.log(`Game reset, Difficulty: ${difficulty}, Pipe Gap: ${pipeGap}, Speed: ${pipeSpeed}, Frequency: ${pipeFrequency}`);
+    }
+
+    function startLevel(level) {
+      console.log(`Starting level: ${level}`);
+      difficulty = level;
+      gamePaused = false;
+      resizeCanvas();
+      resetGame();
+      levelMenu.style.display = 'none';
+      canvas.style.display = 'block';
+      scoreDisplay.style.display = 'block';
+      highScoreDisplay.style.display = 'block';
+      startMessage.style.display = gameStarted ? 'none' : 'block';
+      changeDifficultyButton.style.display = 'block';
+    }
+
+    function showDifficultyMenu() {
+      console.log('Showing difficulty menu');
+      gamePaused = true;
+      levelMenu.style.display = 'block';
+      canvas.style.display = 'none';
+      scoreDisplay.style.display = 'none';
+      highScoreDisplay.style.display = 'none';
+      startMessage.style.display = 'none';
+      changeDifficultyButton.style.display = 'none';
     }
 
     function gameLoop() {
@@ -267,9 +387,14 @@
       requestAnimationFrame(gameLoop);
     }
 
+    easyButton.addEventListener('click', () => startLevel('easy'));
+    mediumButton.addEventListener('click', () => startLevel('medium'));
+    hardButton.addEventListener('click', () => startLevel('hard'));
+    changeDifficultyButton.addEventListener('click', showDifficultyMenu);
+
     document.addEventListener('keydown', (e) => {
       if (e.code === 'Space') {
-        if (!gameStarted && !gameOver) {
+        if (!gameStarted && !gameOver && !gamePaused) {
           gameStarted = true;
           startMessage.style.display = 'none';
         }
@@ -279,7 +404,7 @@
 
     canvas.addEventListener('touchstart', (e) => {
       e.preventDefault();
-      if (!gameStarted && !gameOver) {
+      if (!gameStarted && !gameOver && !gamePaused) {
         gameStarted = true;
         startMessage.style.display = 'none';
       }
@@ -287,13 +412,15 @@
     });
 
     canvas.addEventListener('click', () => {
-      if (!gameStarted && !gameOver) {
+      if (!gameStarted && !gameOver && !gamePaused) {
         gameStarted = true;
         startMessage.style.display = 'none';
       }
       bird.velocity = bird.lift;
     });
 
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
     gameLoop();
   </script>
 </body>
