@@ -1,0 +1,557 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clear Tic-Tac-Toe</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: linear-gradient(180deg, #1e1e2f, #3f3f6e);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      font-family: 'Orbitron', sans-serif;
+      overflow: hidden;
+    }
+    #gameContainer {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: rgba(42, 42, 74, 0.8);
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 0 20px #00e5ff;
+    }
+    #mainMenu, #aiDifficultyMenu {
+      text-align: center;
+    }
+    #board {
+      display: grid;
+      grid-template-columns: repeat(3, 120px);
+      grid-gap: 6px;
+      background: #2a2a4a;
+      padding: 12px;
+      border: 4px solid #00e5ff;
+      border-radius: 8px;
+      display: none;
+    }
+    #winCanvas {
+      position: absolute;
+      top: 32px;
+      left: 32px;
+      pointer-events: none;
+      display: none;
+    }
+    .cell {
+      width: 120px;
+      height: 120px;
+      background: #4a4a7d;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 56px;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .cell:hover:not(.x):not(.o) {
+      transform: scale(1.05);
+      box-shadow: 0 0 12px #00e5ff;
+    }
+    .cell.x::before {
+      content: 'X';
+      color: #ff1744;
+      text-shadow: 0 0 8px #ff1744;
+      animation: fadeIn 0.3s ease-in;
+    }
+    .cell.o::before {
+      content: 'O';
+      color: #3d5afe;
+      text-shadow: 0 0 8px #3d5afe;
+      animation: fadeIn 0.3s ease-in;
+    }
+    #status {
+      margin: 20px 0;
+      font-size: 24px;
+      text-align: center;
+      color: #00e5ff;
+      text-shadow: 0 0 6px #00e5ff;
+      display: none;
+    }
+    #restartButton, .menuButton, .difficultyButton {
+      padding: 12px 24px;
+      margin: 10px;
+      font-size: 18px;
+      color: #00e5ff;
+      background: transparent;
+      border: 2px solid #00e5ff;
+      border-radius: 6px;
+      text-shadow: 0 0 6px #00e5ff;
+      cursor: pointer;
+      transition: all 0.3s;
+      font-family: 'Orbitron', sans-serif;
+    }
+    #restartButton:hover, .menuButton:hover, .difficultyButton:hover {
+      background: #00e5ff;
+      color: #1e1e2f;
+      box-shadow: 0 0 10px #00e5ff;
+    }
+    #gameLink {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      color: #ff2e63;
+      font-size: 18px;
+      text-decoration: none;
+      text-shadow: 0 0 10px #ff2e63;
+      padding: 5px 10px;
+      border: 2px solid #ff2e63;
+      border-radius: 5px;
+      transition: all 0.3s;
+    }
+    #gameLink:hover {
+      background: #ff2e63;
+      color: #0d1b2a;
+      box-shadow: 0 0 15px #ff2e63;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.5); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    @keyframes pulse {
+      0% { opacity: 0.7; }
+      50% { opacity: 1; }
+      100% { opacity: 0.7; }
+    }
+    #status, #restartButton, .menuButton, .difficultyButton { animation: pulse 2s infinite; }
+    @media (max-width: 450px) {
+      #board {
+        grid-template-columns: repeat(3, 90px);
+      }
+      .cell {
+        width: 90px;
+        height: 90px;
+        font-size: 42px;
+      }
+      #winCanvas {
+        top: 29px;
+        left: 29px;
+        width: 234px !important;
+        height: 234px !important;
+      }
+      #status { font-size: 20px; }
+      #restartButton, .menuButton, .difficultyButton { font-size: 16px; padding: 8px 16px; }
+      #gameLink { font-size: 14px; padding: 3px 8px; }
+    }
+  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <a id="gameLink" href="index.html">Game Menu</a>
+  <div id="gameContainer">
+    <div id="mainMenu">
+      <h2>Clear Tic-Tac-Toe</h2>
+      <button class="menuButton" id="playVsAI">Play vs AI</button>
+      <button class="menuButton" id="playVsFriend">Play vs Friend</button>
+    </div>
+    <div id="aiDifficultyMenu" style="display: none;">
+      <h2>Select AI Difficulty</h2>
+      <button class="difficultyButton" id="easyButton">Easy</button>
+      <button class="difficultyButton" id="mediumButton">Medium</button>
+      <button class="difficultyButton" id="hardButton">Hard</button>
+    </div>
+    <div id="board"></div>
+    <canvas id="winCanvas" width="366" height="366"></canvas>
+    <div id="status"></div>
+    <button id="restartButton" style="display: none;">Restart Game</button>
+  </div>
+  <script>
+    const board = document.getElementById('board');
+    const winCanvas = document.getElementById('winCanvas');
+    const ctx = winCanvas.getContext('2d');
+    const status = document.getElementById('status');
+    const restartButton = document.getElementById('restartButton');
+    const mainMenu = document.getElementById('mainMenu');
+    const aiDifficultyMenu = document.getElementById('aiDifficultyMenu');
+    const playVsAI = document.getElementById('playVsAI');
+    const playVsFriend = document.getElementById('playVsFriend');
+    const easyButton = document.getElementById('easyButton');
+    const mediumButton = document.getElementById('mediumButton');
+    const hardButton = document.getElementById('hardButton');
+    let cells = [];
+    let gameBoard = ['', '', '', '', '', '', '', '', ''];
+    let gameActive = true;
+    let currentPlayer = 'X';
+    let gameMode = null;
+    let aiDifficulty = null;
+    let winningCondition = null;
+
+    function initBoard() {
+      board.innerHTML = '';
+      board.style.display = 'grid';
+      winCanvas.style.display = 'none';
+      ctx.clearRect(0, 0, winCanvas.width, winCanvas.height);
+      gameBoard = ['', '', '', '', '', '', '', '', ''];
+      cells = [];
+      gameActive = true;
+      winningCondition = null;
+      currentPlayer = 'X';
+      status.textContent = gameMode === 'ai' ? 'Your Turn (X)' : `Player X's Turn`;
+      status.style.display = 'block';
+      restartButton.style.display = 'block';
+      mainMenu.style.display = 'none';
+      aiDifficultyMenu.style.display = 'none';
+      for (let i = 0; i < 9; i++) {
+        const cell = document.createElement('div');
+        cell.classList.add('cell');
+        cell.dataset.index = i;
+        cell.addEventListener('click', () => handleCellClick(i));
+        board.appendChild(cell);
+        cells.push(cell);
+      }
+      console.log(`Board initialized, Mode: ${gameMode}, Difficulty: ${aiDifficulty || 'N/A'}, Board: ${gameBoard}`);
+    }
+
+    playVsAI.addEventListener('click', () => {
+      mainMenu.style.display = 'none';
+      aiDifficultyMenu.style.display = 'block';
+      console.log('Selected Play vs AI');
+    });
+
+    playVsFriend.addEventListener('click', () => {
+      gameMode = 'friend';
+      initBoard();
+      console.log('Selected Play vs Friend');
+    });
+
+    easyButton.addEventListener('click', () => {
+      gameMode = 'ai';
+      aiDifficulty = 'easy';
+      initBoard();
+      console.log('Selected Easy AI');
+    });
+
+    mediumButton.addEventListener('click', () => {
+      gameMode = 'ai';
+      aiDifficulty = 'medium';
+      initBoard();
+      console.log('Selected Medium AI');
+    });
+
+    hardButton.addEventListener('click', () => {
+      gameMode = 'ai';
+      aiDifficulty = 'hard';
+      initBoard();
+      console.log('Selected Hard AI');
+    });
+
+    function handleCellClick(index) {
+      if (gameBoard[index] === '' && gameActive) {
+        makeMove(index, currentPlayer);
+        console.log(`Cell ${index} clicked, Player: ${currentPlayer}, Board: ${gameBoard}`);
+        if (gameActive && gameMode === 'ai' && currentPlayer === 'O') {
+          setTimeout(() => {
+            if (gameActive && gameMode === 'ai' && currentPlayer === 'O') {
+              aiMove();
+            } else {
+              console.warn(`AI move skipped: gameActive=${gameActive}, gameMode=${gameMode}, currentPlayer=${currentPlayer}`);
+            }
+          }, 500);
+        }
+      }
+    }
+
+    function makeMove(index, symbol) {
+      if (gameBoard[index] !== '') {
+        console.error(`Invalid move: Cell ${index} already occupied with ${gameBoard[index]}`);
+        return;
+      }
+      gameBoard[index] = symbol;
+      cells[index].classList.add(symbol.toLowerCase());
+      if (checkWin()) {
+        status.textContent = gameMode === 'ai' ? (symbol === 'X' ? 'You Win!' : 'AI Wins!') : `Player ${symbol} Wins!`;
+        gameActive = false;
+        drawWinningLine();
+        console.log(`${symbol} wins, Board: ${gameBoard}`);
+      } else if (gameBoard.every(cell => cell !== '')) {
+        status.textContent = "It's a Tie!";
+        gameActive = false;
+        console.log(`Game tied, Board: ${gameBoard}`);
+      } else {
+        currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+        status.textContent = gameMode === 'ai' ? (currentPlayer === 'X' ? 'Your Turn (X)' : 'AI Thinking...') : `Player ${currentPlayer}'s Turn`;
+        console.log(`Turn switched to ${currentPlayer}, Board: ${gameBoard}`);
+      }
+    }
+
+    function aiMove() {
+      if (!gameActive || currentPlayer !== 'O' || gameMode !== 'ai') {
+        console.error(`AI move aborted: gameActive=${gameActive}, currentPlayer=${currentPlayer}, gameMode=${gameMode}`);
+        return;
+      }
+
+      const available = gameBoard.reduce((acc, cell, index) => {
+        if (cell === '') acc.push(index);
+        return acc;
+      }, []);
+
+      if (available.length === 0) {
+        console.log('No available moves for AI');
+        return;
+      }
+
+      let moveIndex;
+      if (aiDifficulty === 'easy') {
+        moveIndex = available[Math.floor(Math.random() * available.length)];
+        console.log(`Easy AI selected cell ${moveIndex}, Available: ${available}`);
+      } else if (aiDifficulty === 'medium') {
+        for (let i of available) {
+          gameBoard[i] = 'O';
+          if (checkWin()) {
+            gameBoard[i] = '';
+            moveIndex = i;
+            console.log(`Medium AI wins at cell ${i}`);
+            break;
+          }
+          gameBoard[i] = '';
+        }
+        if (moveIndex === undefined) {
+          for (let i of available) {
+            gameBoard[i] = 'X';
+            if (checkWin()) {
+              gameBoard[i] = '';
+              moveIndex = i;
+              console.log(`Medium AI blocks at cell ${i}`);
+              break;
+            }
+            gameBoard[i] = '';
+          }
+        }
+        if (moveIndex === undefined && available.includes(4)) {
+          moveIndex = 4;
+          console.log('Medium AI takes center');
+        }
+        if (moveIndex === undefined) {
+          moveIndex = available[Math.floor(Math.random() * available.length)];
+          console.log(`Medium AI selected random cell ${moveIndex}, Available: ${available}`);
+        }
+      } else if (aiDifficulty === 'hard') {
+        const bestMove = minimax(gameBoard, 'O');
+        moveIndex = bestMove.index !== undefined ? bestMove.index : available[Math.floor(Math.random() * available.length)];
+        console.log(`Hard AI selected cell ${moveIndex}, Score: ${bestMove.score || 'N/A'}, Available: ${available}`);
+      }
+
+      if (moveIndex !== undefined && gameBoard[moveIndex] === '') {
+        makeMove(moveIndex, 'O');
+      } else {
+        console.error(`Invalid AI move: index=${moveIndex}, Board: ${gameBoard}`);
+      }
+    }
+
+    function minimax(board, player) {
+      const available = board.reduce((acc, cell, index) => {
+        if (cell === '') acc.push(index);
+        return acc;
+      }, []);
+
+      if (checkWinFor(board, 'X')) return { score: -10 };
+      if (checkWinFor(board, 'O')) return { score: 10 };
+      if (available.length === 0) return { score: 0 };
+
+      const moves = [];
+      for (let i of available) {
+        const move = { index: i };
+        board[i] = player;
+        if (player === 'O') {
+          move.score = minimax(board, 'X').score;
+        } else {
+          move.score = minimax(board, 'O').score;
+        }
+        board[i] = '';
+        moves.push(move);
+      }
+
+      let bestMove = null;
+      if (player === 'O') {
+        let bestScore = -Infinity;
+        for (let move of moves) {
+          if (move.score > bestScore) {
+            bestScore = move.score;
+            bestMove = move;
+          }
+        }
+      } else {
+        let bestScore = Infinity;
+        for (let move of moves) {
+          if (move.score < bestScore) {
+            bestScore = move.score;
+            bestMove = move;
+          }
+        }
+      }
+      return bestMove || { index: available[0], score: 0 };
+    }
+
+    function checkWinFor(board, symbol) {
+      const winConditions = [
+        [0, 1, 2], [3, 4, 5], [6, 7, 8],
+        [0, 3, 6], [1, 4, 7], [2, 5, 8],
+        [0, 4, 8], [2, 4, 6]
+      ];
+      return winConditions.some(condition => {
+        const [a, b, c] = condition;
+        return board[a] === symbol && board[b] === symbol && board[c] === symbol;
+      });
+    }
+
+    function checkWin() {
+      const winConditions = [
+        [0, 1, 2], [3, 4, 5], [6, 7, 8],
+        [0, 3, 6], [1, 4, 7], [2, 5, 8],
+        [0, 4, 8], [2, 4, 6]
+      ];
+      for (let condition of winConditions) {
+        const [a, b, c] = condition;
+        if (gameBoard[a] && gameBoard[a] === gameBoard[b] && gameBoard[a] === gameBoard[c]) {
+          winningCondition = condition;
+          return true;
+        }
+      }
+      return false;
+    }
+
+    function drawWinningLine() {
+      if (!winningCondition) return;
+      winCanvas.style.display = 'block';
+      const [a, b, c] = winningCondition;
+      const cellSize = cells[0].offsetWidth + 6;
+      const offset = cellSize / 2;
+      let startX, startY, endX, endY;
+
+      if (a === 0 && b === 1 && c === 2) {
+        startX = 0;
+        startY = offset;
+        endX = 3 * cellSize;
+        endY = offset;
+      } else if (a === 3 && b === 4 && c === 5) {
+        startX = 0;
+        startY = offset + cellSize;
+        endX = 3 * cellSize;
+        endY = offset + cellSize;
+      } else if (a === 6 && b === 7 && c === 8) {
+        startX = 0;
+        startY = offset + 2 * cellSize;
+        endX = 3 * cellSize;
+        endY = offset + 2 * cellSize;
+      } else if (a === 0 && b === 3 && c === 6) {
+        startX = offset;
+        startY = 0;
+        endX = offset;
+        endY = 3 * cellSize;
+      } else if (a === 1 && b === 4 && c === 7) {
+        startX = offset + cellSize;
+        startY = 0;
+        endX = offset + cellSize;
+        endY = 3 * cellSize;
+      } else if (a === 2 && b === 5 && c === 8) {
+        startX = offset + 2 * cellSize;
+        startY = 0;
+        endX = offset + 2 * cellSize;
+        endY = 3 * cellSize;
+      } else if (a === 0 && b === 4 && c === 8) {
+        startX = 0;
+        startY = 0;
+        endX = 3 * cellSize;
+        endY = 3 * cellSize;
+      } else if (a === 2 && b === 4 && c === 6) {
+        startX = 3 * cellSize;
+        startY = 0;
+        endX = 0;
+        endY = 3 * cellSize;
+      }
+
+      let progress = 0;
+      function animateLine() {
+        ctx.clearRect(0, 0, winCanvas.width, winCanvas.height);
+        ctx.beginPath();
+        ctx.strokeStyle = '#2e7d32';
+        ctx.lineWidth = 10;
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = '#2e7d32';
+        ctx.moveTo(startX, startY);
+        const currentX = startX + (endX - startX) * progress;
+        const currentY = startY + (endY - startY) * progress;
+        ctx.lineTo(currentX, currentY);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        progress += 0.02;
+        if (progress < 1) {
+          requestAnimationFrame(animateLine);
+        }
+      }
+      animateLine();
+      console.log(`Drawing green winning line for condition: ${winningCondition}`);
+    }
+
+    restartButton.addEventListener('click', () => {
+      console.log('Restarting game');
+      initBoard();
+    });
+
+    board.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      const cell = document.elementFromPoint(touch.clientX, touch.clientY);
+      if (cell && cell.classList.contains('cell')) {
+        const index = parseInt(cell.dataset.index);
+        handleCellClick(index);
+      }
+    });
+
+    mainMenu.style.display = 'block';
+    console.log('Main menu displayed');
+  </script>
+</body>
+</html>
