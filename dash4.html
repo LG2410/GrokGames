@@ -61,7 +61,7 @@
     .game-container {
       text-align: center;
       background: #0f0e17;
-      padding: 20px;
+      padding: 10px;
       border-radius: 10px;
       box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
     }
@@ -72,8 +72,8 @@
     }
     #score, #game-over {
       color: #00ddeb;
-      font-size: 24px;
-      margin: 10px 0;
+      font-size: 16px;
+      margin: 5px 0;
       text-shadow: 0 0 10px #00ddeb;
     }
     #game-over {
@@ -83,46 +83,61 @@
       left: 50%;
       transform: translate(-50%, -50%);
       background: rgba(0, 29, 61, 0.8);
-      padding: 20px;
+      padding: 10px;
       border-radius: 10px;
       box-shadow: 0 0 20px #00ddeb;
     }
+    .game-controls {
+      margin-top: 8px;
+    }
     button {
-      padding: 10px 20px;
-      font-size: 18px;
+      padding: 5px 10px;
+      font-size: 12px;
       color: #ff2e63;
       background: transparent;
       border: 2px solid #ff2e63;
       border-radius: 5px;
       cursor: pointer;
       transition: all 0.3s;
-      margin-top: 10px;
+      margin: 0 4px;
     }
     button:hover {
       background: #ff2e63;
       color: #0f0e17;
       box-shadow: 0 0 15px #ff2e63;
     }
-    @media (max-width: 600px) {
+    @media (max-width: 400px) {
       canvas {
-        width: 300px;
-        height: 600px;
+        width: 180px;
+        height: 360px;
       }
       #score, #game-over {
-        font-size: 18px;
+        font-size: 12px;
       }
       button {
-        font-size: 16px;
-        padding: 8px 16px;
+        font-size: 10px;
+        padding: 4px 8px;
+      }
+      .game-container {
+        padding: 6px;
+      }
+      .game-controls {
+        margin-top: 6px;
       }
     }
   </style>
   <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <body>
+  <a id="gameLink" href="index.html">Game Menu</a>
   <div class="game-container">
     <div id="score">Score: 0</div>
-    <canvas id="gameCanvas" width="400" height="800"></canvas>
+    <canvas id="gameCanvas" width="240" height="480"></canvas>
+    <div class="game-controls">
+      <button id="restart-game-button">Restart Game</button>
+      <button id="faster-button">Faster</button>
+      <button id="slower-button">Slower</button>
+    </div>
     <div id="game-over">
       Game Over!<br>Score: <span id="final-score">0</span><br>
       <button id="restart-button">Restart</button>
@@ -135,9 +150,12 @@
     const gameOverDisplay = document.getElementById('game-over');
     const finalScoreDisplay = document.getElementById('final-score');
     const restartButton = document.getElementById('restart-button');
+    const restartGameButton = document.getElementById('restart-game-button');
+    const fasterButton = document.getElementById('faster-button');
+    const slowerButton = document.getElementById('slower-button');
 
     // Game constants
-    const GRID_SIZE = 40;
+    const GRID_SIZE = 24;
     const COLS = canvas.width / GRID_SIZE;
     const ROWS = canvas.height / GRID_SIZE;
     const COLORS = [
@@ -281,6 +299,28 @@
       }
     }
 
+    // Reset game
+    function resetGame() {
+      board = Array(ROWS).fill().map(() => Array(COLS).fill(0));
+      score = 0;
+      dropInterval = 1000;
+      gameOver = false;
+      scoreDisplay.textContent = `Score: ${score}`;
+      gameOverDisplay.style.display = 'none';
+      currentPiece = createPiece();
+    }
+
+    // Adjust game speed
+    function makeFaster() {
+      dropInterval = Math.max(200, dropInterval - 100); // Decrease interval by 100ms, min 200ms
+      console.log(`Game speed increased: dropInterval = ${dropInterval}ms`);
+    }
+
+    function makeSlower() {
+      dropInterval = Math.min(2000, dropInterval + 100); // Increase interval by 100ms, max 2000ms
+      console.log(`Game speed decreased: dropInterval = ${dropInterval}ms`);
+    }
+
     // Game loop
     function update(time = 0) {
       if (gameOver) {
@@ -350,7 +390,7 @@
       e.preventDefault();
       const touchX = e.touches[0].clientX;
       const deltaX = touchX - touchStartX;
-      if (Math.abs(deltaX) > 50) {
+      if (Math.abs(deltaX) > 30) {
         if (deltaX > 0 && !collide(currentPiece, 1, 0)) {
           currentPiece.x++;
         } else if (deltaX < 0 && !collide(currentPiece, -1, 0)) {
@@ -366,17 +406,11 @@
       draw();
     });
 
-    // Restart game
-    restartButton.addEventListener('click', () => {
-      board = Array(ROWS).fill().map(() => Array(COLS).fill(0));
-      score = 0;
-      dropInterval = 1000;
-      gameOver = false;
-      scoreDisplay.textContent = `Score: ${score}`;
-      gameOverDisplay.style.display = 'none';
-      currentPiece = createPiece();
-      update();
-    });
+    // Button event listeners
+    restartButton.addEventListener('click', resetGame);
+    restartGameButton.addEventListener('click', resetGame);
+    fasterButton.addEventListener('click', makeFaster);
+    slowerButton.addEventListener('click', makeSlower);
 
     // Start game
     currentPiece = createPiece();
