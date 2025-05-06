@@ -1,0 +1,376 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Car Driving Game</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background: linear-gradient(180deg, #1a1a2e, #16213e);
+      font-family: 'Roboto Mono', monospace;
+      overflow: hidden;
+    }
+
+#gameLink {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      color: #ff2e63;
+      font-size: 18px;
+      text-decoration: none;
+      text-shadow: 0 0 10px #ff2e63;
+      padding: 5px 10px;
+      border: 2px solid #ff2e63;
+      border-radius: 5px;
+      transition: all 0.3s;
+    }
+
+
+    .game-container {
+      text-align: center;
+      background: #0f0e17;
+      padding: 10px;
+      border-radius: 10px;
+      box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+    }
+    canvas {
+      border: 2px solid #00ddeb;
+      background: #333;
+      max-width: 100%;
+    }
+    #score, #speed, #game-over {
+      color: #00ddeb;
+      font-size: 16px;
+      margin: 5px 0;
+      text-shadow: 0 0 10px #00ddeb;
+    }
+    #game-over {
+      display: none;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 29, 61, 0.8);
+      padding: 10px;
+      border-radius: 10px;
+      box-shadow: 0 0 20px #00ddeb;
+    }
+    .game-controls {
+      margin-top: 8px;
+    }
+    button {
+      padding: 5px 10px;
+      font-size: 12px;
+      color: #ff2e63;
+      background: transparent;
+      border: 2px solid #ff2e63;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: all 0.3s;
+      margin: 0 4px;
+    }
+    button:hover {
+      background: #ff2e63;
+      color: #0f0e17;
+      box-shadow: 0 0 15px #ff2e63;
+    }
+    @media (max-width: 400px) {
+      canvas {
+        width: 180px;
+        height: 360px;
+      }
+      #score, #speed, #game-over {
+        font-size: 12px;
+      }
+      button {
+        font-size: 10px;
+        padding: 4px 8px;
+      }
+      .game-container {
+        padding: 6px;
+      }
+      .game-controls {
+        margin-top: 6px;
+      }
+    }
+  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+<a id="gameLink" href="index.html">Game Menu</a>
+  <div class="game-container">
+    <div id="score">Score: 0</div>
+    <div id="speed">Speed: 50%</div>
+    <canvas id="gameCanvas" width="240" height="480"></canvas>
+    <div class="game-controls">
+      <button id="restart-game-button">Restart Game</button>
+      <button id="faster-button">Faster</button>
+      <button id="slower-button">Slower</button>
+    </div>
+    <div id="game-over">
+      Game Over!<br>Score: <span id="final-score">0</span><br>
+      <button id="restart-button">Restart</button>
+    </div>
+  </div>
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const scoreDisplay = document.getElementById('score');
+    const speedDisplay = document.getElementById('speed');
+    const gameOverDisplay = document.getElementById('game-over');
+    const finalScoreDisplay = document.getElementById('final-score');
+    const restartButton = document.getElementById('restart-button');
+    const restartGameButton = document.getElementById('restart-game-button');
+    const fasterButton = document.getElementById('faster-button');
+    const slowerButton = document.getElementById('slower-button');
+
+    // Game constants
+    const LANE_WIDTH = 80;
+    const LANES = 3;
+    const CAR_WIDTH = 40;
+    const CAR_HEIGHT = 60;
+    const ROAD_WIDTH = LANE_WIDTH * LANES;
+    const ROAD_X = (canvas.width - ROAD_WIDTH) / 2;
+
+    // Game state
+    let playerLane = 1;
+    let enemies = [];
+    let score = 0;
+    let gameOver = false;
+    let gameSpeed = 1; // 0.5 (0%) to 2 (100%)
+    let lastTime = 0;
+    let lastEnemySpawn = 0;
+    let roadOffset = 0;
+
+    // Update speed display
+    function updateSpeedDisplay() {
+      const speedPercentage = ((gameSpeed - 0.5) / (2 - 0.5)) * 100;
+      speedDisplay.textContent = `Speed: ${Math.round(speedPercentage)}%`;
+    }
+
+    // Reset game
+    function resetGame() {
+      playerLane = 1;
+      enemies = [];
+      score = 0;
+      gameSpeed = 1;
+      gameOver = false;
+      scoreDisplay.textContent = `Score: ${score}`;
+      updateSpeedDisplay();
+      gameOverDisplay.style.display = 'none';
+      lastEnemySpawn = performance.now();
+      roadOffset = 0;
+    }
+
+    // Adjust speed
+    function makeFaster() {
+      gameSpeed = Math.min(2, gameSpeed + 0.1); // Increase by 0.1, max 2
+      updateSpeedDisplay();
+      console.log(`Game speed increased: gameSpeed = ${gameSpeed}`);
+    }
+
+    function makeSlower() {
+      gameSpeed = Math.max(0.5, gameSpeed - 0.1); // Decrease by 0.1, min 0.5
+      updateSpeedDisplay();
+      console.log(`Game speed decreased: gameSpeed = ${gameSpeed}`);
+    }
+
+    // Spawn enemy
+    function spawnEnemy() {
+      const lane = Math.floor(Math.random() * LANES);
+      enemies.push({
+        lane: lane,
+        y: -CAR_HEIGHT,
+        color: `hsl(${Math.random() * 360}, 70%, 50%)`
+      });
+    }
+
+    // Check collision
+    function checkCollision() {
+      const playerX = ROAD_X + playerLane * LANE_WIDTH + LANE_WIDTH / 2 - CAR_WIDTH / 2;
+      const playerY = canvas.height - CAR_HEIGHT - 20;
+      for (const enemy of enemies) {
+        const enemyX = ROAD_X + enemy.lane * LANE_WIDTH + LANE_WIDTH / 2 - CAR_WIDTH / 2;
+        if (
+          Math.abs(playerX - enemyX) < CAR_WIDTH &&
+          Math.abs(playerY - enemy.y) < CAR_HEIGHT
+        ) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    // Draw game
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Draw road
+      ctx.fillStyle = '#555';
+      ctx.fillRect(ROAD_X, 0, ROAD_WIDTH, canvas.height);
+
+      // Draw lane lines
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 4;
+      ctx.setLineDash([20, 20]);
+      for (let i = 1; i < LANES; i++) {
+        ctx.beginPath();
+        ctx.moveTo(ROAD_X + i * LANE_WIDTH, 0);
+        ctx.lineTo(ROAD_X + i * LANE_WIDTH, canvas.height);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+
+      // Draw player car
+      const playerX = ROAD_X + playerLane * LANE_WIDTH + LANE_WIDTH / 2 - CAR_WIDTH / 2;
+      const playerY = canvas.height - CAR_HEIGHT - 20;
+      ctx.fillStyle = '#00ddeb';
+      ctx.fillRect(playerX, playerY, CAR_WIDTH, CAR_HEIGHT);
+
+      // Draw enemy cars
+      for (const enemy of enemies) {
+        const enemyX = ROAD_X + enemy.lane * LANE_WIDTH + LANE_WIDTH / 2 - CAR_WIDTH / 2;
+        ctx.fillStyle = enemy.color;
+        ctx.fillRect(enemyX, enemy.y, CAR_WIDTH, CAR_HEIGHT);
+      }
+    }
+
+    // Game loop
+    function update(time) {
+      if (gameOver) {
+        gameOverDisplay.style.display = 'block';
+        finalScoreDisplay.textContent = score;
+        return;
+      }
+
+      const deltaTime = (time - lastTime) / 1000; // Convert to seconds
+      lastTime = time;
+
+      // Update road scroll
+      roadOffset += deltaTime * gameSpeed * 100;
+      if (roadOffset >= 40) roadOffset -= 40;
+      ctx.setLineDash([20, 20]);
+      ctx.lineDashOffset = -roadOffset;
+
+      // Spawn enemies
+      if (time - lastEnemySpawn > 2000 / gameSpeed) {
+        spawnEnemy();
+        lastEnemySpawn = time;
+      }
+
+      // Update enemies
+      for (let i = enemies.length - 1; i >= 0; i--) {
+        enemies[i].y += deltaTime * gameSpeed * 150;
+        if (enemies[i].y > canvas.height) {
+          enemies.splice(i, 1);
+        }
+      }
+
+      // Update score
+      score += Math.round(deltaTime * gameSpeed * 10);
+      scoreDisplay.textContent = `Score: ${score}`;
+
+      // Check collision
+      if (checkCollision()) {
+        gameOver = true;
+      }
+
+      draw();
+      requestAnimationFrame(update);
+    }
+
+    // Keyboard controls
+    document.addEventListener('keydown', (e) => {
+      if (gameOver) return;
+      e.preventDefault();
+      if (e.code === 'ArrowLeft' && playerLane > 0) {
+        playerLane--;
+      }
+      if (e.code === 'ArrowRight' && playerLane < LANES - 1) {
+        playerLane++;
+      }
+      draw();
+    });
+
+    // Touch controls
+    let touchStartX = 0;
+    canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      touchStartX = e.touches[0].clientX;
+    });
+    canvas.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      const touchX = e.touches[0].clientX;
+      const deltaX = touchX - touchStartX;
+      if (Math.abs(deltaX) > 30) {
+        if (deltaX > 0 && playerLane < LANES - 1) {
+          playerLane++;
+        } else if (deltaX < 0 && playerLane > 0) {
+          playerLane--;
+        }
+        touchStartX = touchX;
+        draw();
+      }
+    });
+
+    // Button event listeners
+    restartButton.addEventListener('click', resetGame);
+    restartGameButton.addEventListener('click', resetGame);
+    fasterButton.addEventListener('click', makeFaster);
+    slowerButton.addEventListener('click', makeSlower);
+
+    // Start game
+    resetGame();
+    lastTime = performance.now();
+    update(lastTime);
+  </script>
+</body>
+</html>
