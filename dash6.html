@@ -13,7 +13,9 @@
       margin: 0;
       padding: 0;
     }
-#gameLink {
+
+
+    #gameLink {
       position: absolute;
       top: 10px;
       right: 10px;
@@ -26,7 +28,6 @@
       border-radius: 5px;
       transition: all 0.3s;
     }
-
     h1 {
       margin-top: 20px;
     }
@@ -38,12 +39,17 @@
       border: 2px solid #00ff00;
     }
 
-    #score {
+    #score, #highscore, #speedDisplay {
       font-size: 18px;
+      margin: 5px;
     }
 
-    #restart {
+    .controls {
       margin-top: 10px;
+    }
+
+    button {
+      margin: 5px;
       padding: 10px 20px;
       font-size: 16px;
       cursor: pointer;
@@ -54,28 +60,41 @@
   </style>
 </head>
 <body>
-<a id="gameLink" href="index.html">Game Menu</a>
+  <a id="gameLink" href="index.html">Game Menu</a>
   <h1>🐍 Classic Snake Game</h1>
   <div id="score">Score: 0</div>
+  <div id="highscore">High Score: 0</div>
+  <div id="speedDisplay">Speed: 100%</div>
   <canvas id="game" width="400" height="400"></canvas>
-  <button id="restart" onclick="startGame()">Restart</button>
+  <div class="controls">
+    <button onclick="startGame()">Restart</button>
+    <button onclick="changeSpeed(-10)">Slow</button>
+    <button onclick="changeSpeed(10)">Fast</button>
+  </div>
 
   <script>
     const canvas = document.getElementById('game');
     const ctx = canvas.getContext('2d');
-
     const box = 20;
     const rows = canvas.height / box;
     const cols = canvas.width / box;
 
     let score;
+    let highScore = 0;
     let snake;
     let food;
     let direction;
     let changingDirection;
     let game;
+    let speed = 100;
 
     document.addEventListener('keydown', changeDirection);
+
+    function updateUI() {
+      document.getElementById('score').textContent = 'Score: ' + score;
+      document.getElementById('highscore').textContent = 'High Score: ' + highScore;
+      document.getElementById('speedDisplay').textContent = 'Speed: ' + Math.round(10000 / speed) + '%';
+    }
 
     function startGame() {
       score = 0;
@@ -86,15 +105,21 @@
       };
       direction = 'RIGHT';
       changingDirection = false;
-      document.getElementById('score').textContent = 'Score: 0';
+      updateUI();
       if (game) clearInterval(game);
-      game = setInterval(draw, 100);
+      game = setInterval(draw, speed);
+    }
+
+    function changeSpeed(change) {
+      speed = Math.max(30, speed + change);
+      clearInterval(game);
+      game = setInterval(draw, speed);
+      updateUI();
     }
 
     function changeDirection(e) {
       if (changingDirection) return;
       changingDirection = true;
-
       const key = e.key;
       if ((key === 'ArrowLeft' || key === 'PageUp') && direction !== 'RIGHT') direction = 'LEFT';
       else if ((key === 'ArrowUp' || key === 'Home') && direction !== 'DOWN') direction = 'UP';
@@ -104,12 +129,10 @@
 
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-
       for (let i = 0; i < snake.length; i++) {
         ctx.fillStyle = i === 0 ? '#0f0' : '#0b0';
         ctx.fillRect(snake[i].x, snake[i].y, box, box);
       }
-
       ctx.fillStyle = '#f00';
       ctx.fillRect(food.x, food.y, box, box);
 
@@ -119,21 +142,22 @@
       if (direction === 'RIGHT') head.x += box;
       if (direction === 'DOWN') head.y += box;
 
-      // Fix border collision (use strict equals to canvas edges)
       const hitWall = head.x < 0 || head.x >= canvas.width || head.y < 0 || head.y >= canvas.height;
       const hitSelf = snake.some(segment => segment.x === head.x && segment.y === head.y);
 
       if (hitWall || hitSelf) {
         clearInterval(game);
         alert('Game Over! Your score: ' + score);
+        if (score > highScore) {
+          highScore = score;
+        }
+        updateUI();
         return;
       }
 
       snake.unshift(head);
-
       if (head.x === food.x && head.y === food.y) {
         score++;
-        document.getElementById('score').textContent = 'Score: ' + score;
         food = {
           x: Math.floor(Math.random() * cols) * box,
           y: Math.floor(Math.random() * rows) * box
@@ -143,6 +167,7 @@
       }
 
       changingDirection = false;
+      updateUI();
     }
 
     startGame();
