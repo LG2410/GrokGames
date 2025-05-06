@@ -1,0 +1,388 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tetris</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background: linear-gradient(180deg, #1a1a2e, #16213e);
+      font-family: 'Roboto Mono', monospace;
+      overflow: hidden;
+    }
+    .game-container {
+      text-align: center;
+      background: #0f0e17;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+    }
+    canvas {
+      border: 2px solid #00ddeb;
+      background: #1a1a2e;
+      max-width: 100%;
+    }
+    #score, #game-over {
+      color: #00ddeb;
+      font-size: 24px;
+      margin: 10px 0;
+      text-shadow: 0 0 10px #00ddeb;
+    }
+    #game-over {
+      display: none;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 29, 61, 0.8);
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 20px #00ddeb;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 18px;
+      color: #ff2e63;
+      background: transparent;
+      border: 2px solid #ff2e63;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: all 0.3s;
+      margin-top: 10px;
+    }
+    button:hover {
+      background: #ff2e63;
+      color: #0f0e17;
+      box-shadow: 0 0 15px #ff2e63;
+    }
+    @media (max-width: 600px) {
+      canvas {
+        width: 300px;
+        height: 600px;
+      }
+      #score, #game-over {
+        font-size: 18px;
+      }
+      button {
+        font-size: 16px;
+        padding: 8px 16px;
+      }
+    }
+  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="game-container">
+    <div id="score">Score: 0</div>
+    <canvas id="gameCanvas" width="400" height="800"></canvas>
+    <div id="game-over">
+      Game Over!<br>Score: <span id="final-score">0</span><br>
+      <button id="restart-button">Restart</button>
+    </div>
+  </div>
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const scoreDisplay = document.getElementById('score');
+    const gameOverDisplay = document.getElementById('game-over');
+    const finalScoreDisplay = document.getElementById('final-score');
+    const restartButton = document.getElementById('restart-button');
+
+    // Game constants
+    const GRID_SIZE = 40;
+    const COLS = canvas.width / GRID_SIZE;
+    const ROWS = canvas.height / GRID_SIZE;
+    const COLORS = [
+      '#00ddeb', // I
+      '#ff2e63', // O
+      '#ffd700', // T
+      '#00ff00', // S
+      '#ff00ff', // Z
+      '#0000ff', // J
+      '#ffa500'  // L
+    ];
+
+    // Tetromino shapes
+    const SHAPES = [
+      [[1, 1, 1, 1]], // I
+      [[1, 1], [1, 1]], // O
+      [[0, 1, 0], [1, 1, 1]], // T
+      [[0, 1, 1], [1, 1, 0]], // S
+      [[1, 1, 0], [0, 1, 1]], // Z
+      [[1, 0, 0], [1, 1, 1]], // J
+      [[0, 0, 1], [1, 1, 1]]  // L
+    ];
+
+    // Game state
+    let board = Array(ROWS).fill().map(() => Array(COLS).fill(0));
+    let currentPiece = null;
+    let score = 0;
+    let gameOver = false;
+    let dropCounter = 0;
+    let dropInterval = 1000; // ms
+    let lastTime = 0;
+
+    // Create a new piece
+    function createPiece() {
+      const type = Math.floor(Math.random() * SHAPES.length);
+      return {
+        shape: SHAPES[type],
+        color: COLORS[type],
+        x: Math.floor(COLS / 2) - Math.floor(SHAPES[type][0].length / 2),
+        y: 0
+      };
+    }
+
+    // Draw the board and pieces
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // Draw board
+      for (let row = 0; row < ROWS; row++) {
+        for (let col = 0; col < COLS; col++) {
+          if (board[row][col]) {
+            ctx.fillStyle = board[row][col];
+            ctx.fillRect(col * GRID_SIZE, row * GRID_SIZE, GRID_SIZE - 1, GRID_SIZE - 1);
+            ctx.strokeStyle = '#0f0e17';
+            ctx.strokeRect(col * GRID_SIZE, row * GRID_SIZE, GRID_SIZE - 1, GRID_SIZE - 1);
+          }
+        }
+      }
+      // Draw current piece
+      if (currentPiece) {
+        currentPiece.shape.forEach((row, y) => {
+          row.forEach((value, x) => {
+            if (value) {
+              ctx.fillStyle = currentPiece.color;
+              ctx.fillRect(
+                (currentPiece.x + x) * GRID_SIZE,
+                (currentPiece.y + y) * GRID_SIZE,
+                GRID_SIZE - 1,
+                GRID_SIZE - 1
+              );
+              ctx.strokeStyle = '#0f0e17';
+              ctx.strokeRect(
+                (currentPiece.x + x) * GRID_SIZE,
+                (currentPiece.y + y) * GRID_SIZE,
+                GRID_SIZE - 1,
+                GRID_SIZE - 1
+              );
+            }
+          });
+        });
+      }
+    }
+
+    // Check collision
+    function collide(piece, dx = 0, dy = 0) {
+      for (let y = 0; y < piece.shape.length; y++) {
+        for (let x = 0; x < piece.shape[y].length; x++) {
+          if (piece.shape[y][x]) {
+            const newX = piece.x + x + dx;
+            const newY = piece.y + y + dy;
+            if (
+              newX < 0 ||
+              newX >= COLS ||
+              newY >= ROWS ||
+              (newY >= 0 && board[newY][newX])
+            ) {
+              return true;
+            }
+          }
+        }
+      }
+      return false;
+    }
+
+    // Merge piece to board
+    function merge() {
+      currentPiece.shape.forEach((row, y) => {
+        row.forEach((value, x) => {
+          if (value) {
+            board[currentPiece.y + y][currentPiece.x + x] = currentPiece.color;
+          }
+        });
+      });
+    }
+
+    // Clear full lines
+    function clearLines() {
+      let linesCleared = 0;
+      for (let row = ROWS - 1; row >= 0; row--) {
+        if (board[row].every(cell => cell)) {
+          board.splice(row, 1);
+          board.unshift(Array(COLS).fill(0));
+          linesCleared++;
+          row++;
+        }
+      }
+      if (linesCleared > 0) {
+        score += [100, 300, 600, 1200][linesCleared - 1] || 1200;
+        scoreDisplay.textContent = `Score: ${score}`;
+        dropInterval = Math.max(200, dropInterval - linesCleared * 50); // Increase speed
+      }
+    }
+
+    // Rotate piece
+    function rotate(piece) {
+      const newShape = piece.shape[0].map((_, index) =>
+        piece.shape.map(row => row[index]).reverse()
+      );
+      const newPiece = { ...piece, shape: newShape };
+      if (!collide(newPiece)) {
+        piece.shape = newShape;
+      }
+    }
+
+    // Game loop
+    function update(time = 0) {
+      if (gameOver) {
+        gameOverDisplay.style.display = 'block';
+        finalScoreDisplay.textContent = score;
+        return;
+      }
+      const deltaTime = time - lastTime;
+      lastTime = time;
+      dropCounter += deltaTime;
+      if (dropCounter > dropInterval) {
+        if (!collide(currentPiece, 0, 1)) {
+          currentPiece.y++;
+        } else {
+          merge();
+          clearLines();
+          currentPiece = createPiece();
+          if (collide(currentPiece)) {
+            gameOver = true;
+          }
+        }
+        dropCounter = 0;
+      }
+      draw();
+      requestAnimationFrame(update);
+    }
+
+    // Handle controls
+    document.addEventListener('keydown', e => {
+      if (gameOver) return;
+      e.preventDefault();
+      if (e.code === 'ArrowLeft' && !collide(currentPiece, -1, 0)) {
+        currentPiece.x--;
+      }
+      if (e.code === 'ArrowRight' && !collide(currentPiece, 1, 0)) {
+        currentPiece.x++;
+      }
+      if (e.code === 'ArrowDown' && !collide(currentPiece, 0, 1)) {
+        currentPiece.y++;
+        dropCounter = 0;
+      }
+      if (e.code === 'ArrowUp') {
+        rotate(currentPiece);
+      }
+      if (e.code === 'Space') {
+        while (!collide(currentPiece, 0, 1)) {
+          currentPiece.y++;
+        }
+        merge();
+        clearLines();
+        currentPiece = createPiece();
+        if (collide(currentPiece)) {
+          gameOver = true;
+        }
+        dropCounter = 0;
+      }
+      draw();
+    });
+
+    // Touch controls for mobile
+    let touchStartX = 0;
+    canvas.addEventListener('touchstart', e => {
+      e.preventDefault();
+      touchStartX = e.touches[0].clientX;
+    });
+    canvas.addEventListener('touchmove', e => {
+      e.preventDefault();
+      const touchX = e.touches[0].clientX;
+      const deltaX = touchX - touchStartX;
+      if (Math.abs(deltaX) > 50) {
+        if (deltaX > 0 && !collide(currentPiece, 1, 0)) {
+          currentPiece.x++;
+        } else if (deltaX < 0 && !collide(currentPiece, -1, 0)) {
+          currentPiece.x--;
+        }
+        touchStartX = touchX;
+        draw();
+      }
+    });
+    canvas.addEventListener('touchend', e => {
+      e.preventDefault();
+      rotate(currentPiece);
+      draw();
+    });
+
+    // Restart game
+    restartButton.addEventListener('click', () => {
+      board = Array(ROWS).fill().map(() => Array(COLS).fill(0));
+      score = 0;
+      dropInterval = 1000;
+      gameOver = false;
+      scoreDisplay.textContent = `Score: ${score}`;
+      gameOverDisplay.style.display = 'none';
+      currentPiece = createPiece();
+      update();
+    });
+
+    // Start game
+    currentPiece = createPiece();
+    canvas.setAttribute('tabindex', '0');
+    canvas.focus();
+    update();
+  </script>
+</body>
+</html>
