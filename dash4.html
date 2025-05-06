@@ -1,43 +1,4 @@
-<script type="text/javascript">
-        var gk_isXlsx = false;
-        var gk_xlsxFileLookup = {};
-        var gk_fileData = {};
-        function filledCell(cell) {
-          return cell !== '' && cell != null;
-        }
-        function loadFileData(filename) {
-        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
-            try {
-                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
-                var firstSheetName = workbook.SheetNames[0];
-                var worksheet = workbook.Sheets[firstSheetName];
-
-                // Convert sheet to JSON to filter blank rows
-                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
-                // Filter out blank rows (rows where all cells are empty, null, or undefined)
-                var filteredData = jsonData.filter(row => row.some(filledCell));
-
-                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
-                var headerRowIndex = filteredData.findIndex((row, index) =>
-                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
-                );
-                // Fallback
-                if (headerRowIndex === -1 || headerRowIndex > 25) {
-                  headerRowIndex = 0;
-                }
-
-                // Convert filtered JSON back to CSV
-                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
-                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
-                return csv;
-            } catch (e) {
-                console.error(e);
-                return "";
-            }
-        }
-        return gk_fileData[filename] || "";
-        }
-        </script><!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -58,14 +19,6 @@
       font-family: 'Roboto Mono', monospace;
       overflow: hidden;
     }
-    .game-container {
-      text-align: center;
-      background: #0f0e17;
-      padding: 10px;
-      border-radius: 10px;
-      box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
-    }
-
 #gameLink {
       position: absolute;
       top: 10px;
@@ -80,14 +33,20 @@
       transition: all 0.3s;
     }
 
-
           
+    .game-container {
+      text-align: center;
+      background: #0f0e17;
+      padding: 10px;
+      border-radius: 10px;
+      box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+    }
     canvas {
       border: 2px solid #00ddeb;
       background: #1a1a2e;
       max-width: 100%;
     }
-    #score, #game-over {
+    #score, #speed, #game-over {
       color: #00ddeb;
       font-size: 16px;
       margin: 5px 0;
@@ -128,7 +87,7 @@
         width: 180px;
         height: 360px;
       }
-      #score, #game-over {
+      #score, #speed, #game-over {
         font-size: 12px;
       }
       button {
@@ -146,9 +105,10 @@
   <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <body>
-  <a id="gameLink" href="index.html">Game Menu</a>
+ <a id="gameLink" href="index.html">Game Menu</a>
   <div class="game-container">
     <div id="score">Score: 0</div>
+    <div id="speed">Speed: 50%</div>
     <canvas id="gameCanvas" width="240" height="480"></canvas>
     <div class="game-controls">
       <button id="restart-game-button">Restart Game</button>
@@ -164,6 +124,7 @@
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const scoreDisplay = document.getElementById('score');
+    const speedDisplay = document.getElementById('speed');
     const gameOverDisplay = document.getElementById('game-over');
     const finalScoreDisplay = document.getElementById('final-score');
     const restartButton = document.getElementById('restart-button');
@@ -204,6 +165,12 @@
     let dropCounter = 0;
     let dropInterval = 1000; // ms
     let lastTime = 0;
+
+    // Update speed display
+    function updateSpeedDisplay() {
+      const speedPercentage = ((2000 - dropInterval) / (2000 - 200)) * 100;
+      speedDisplay.textContent = `Speed: ${Math.round(speedPercentage)}%`;
+    }
 
     // Create a new piece
     function createPiece() {
@@ -302,6 +269,7 @@
         score += [100, 300, 600, 1200][linesCleared - 1] || 1200;
         scoreDisplay.textContent = `Score: ${score}`;
         dropInterval = Math.max(200, dropInterval - linesCleared * 50); // Increase speed
+        updateSpeedDisplay();
       }
     }
 
@@ -323,6 +291,7 @@
       dropInterval = 1000;
       gameOver = false;
       scoreDisplay.textContent = `Score: ${score}`;
+      updateSpeedDisplay();
       gameOverDisplay.style.display = 'none';
       currentPiece = createPiece();
     }
@@ -330,15 +299,18 @@
     // Adjust game speed
     function makeFaster() {
       dropInterval = Math.max(200, dropInterval - 100); // Decrease interval by 100ms, min 200ms
+      updateSpeedDisplay();
       console.log(`Game speed increased: dropInterval = ${dropInterval}ms`);
     }
 
     function makeSlower() {
       dropInterval = Math.min(2000, dropInterval + 100); // Increase interval by 100ms, max 2000ms
+      updateSpeedDisplay();
       console.log(`Game speed decreased: dropInterval = ${dropInterval}ms`);
     }
 
     // Game loop
+    updateSpeedDisplay();
     function update(time = 0) {
       if (gameOver) {
         gameOverDisplay.style.display = 'block';
