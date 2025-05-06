@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>2048 with Animations</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #faf8ef;
+      margin: 0;
+      padding: 0;
+      text-align: center;
+    }
+    #gameLink {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      color: #bc8a1e;
+      font-size: 18px;
+      text-decoration: none;
+      text-shadow: 0 0 10px #c16011;
+      padding: 5px 10px;
+      border: 2px solid #d59108;
+      border-radius: 5px;
+      transition: all 0.3s;
+    }
+
+#gameLink:hover {
+  background: #ff2e63;
+  color: #0d1b2a;
+  box-shadow: 0 0 15px #ff2e63;
+}
+
+
+    h1 {
+      margin-top: 20px;
+      color: #776e65;
+    }
+    #game {
+      width: 400px;
+      height: 400px;
+      margin: 20px auto;
+      background: #bbada0;
+      border-radius: 6px;
+      position: relative;
+    }
+    .tile {
+      position: absolute;
+      width: 90px;
+      height: 90px;
+      line-height: 90px;
+      font-size: 24px;
+      font-weight: bold;
+      background: #cdc1b4;
+      border-radius: 4px;
+      color: #776e65;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      transition: transform 0.15s ease-in-out, top 0.15s, left 0.15s;
+    }
+    .tile.new {
+      animation: pop 0.3s;
+    }
+    @keyframes pop {
+      0% { transform: scale(0); }
+      50% { transform: scale(1.2); }
+      100% { transform: scale(1); }
+    }
+    .tile[data-val="2"] { background: #eee4da; }
+    .tile[data-val="4"] { background: #ede0c8; }
+    .tile[data-val="8"] { background: #f2b179; color: white; }
+    .tile[data-val="16"] { background: #f59563; color: white; }
+    .tile[data-val="32"] { background: #f67c5f; color: white; }
+    .tile[data-val="64"] { background: #f65e3b; color: white; }
+    .tile[data-val="128"] { background: #edcf72; color: white; }
+    .tile[data-val="256"] { background: #edcc61; color: white; }
+    .tile[data-val="512"] { background: #edc850; color: white; }
+    .tile[data-val="1024"] { background: #edc53f; color: white; }
+    .tile[data-val="2048"] { background: #edc22e; color: white; }
+  </style>
+</head>
+<body>
+  <a id="gameLink" href="index.html">Game Menu</a>
+  <h1>2048 Game</h1>
+  <div id="game"></div>
+
+  <script>
+    const size = 4;
+    const game = document.getElementById("game");
+    const tileSize = 100;
+    let board = [];
+
+    function createEmptyBoard() {
+      board = Array(size).fill().map(() => Array(size).fill(null));
+    }
+
+    function addTile() {
+      let empty = [];
+      for (let i = 0; i < size; i++) {
+        for (let j = 0; j < size; j++) {
+          if (!board[i][j]) empty.push({ x: i, y: j });
+        }
+      }
+      if (empty.length === 0) return;
+      let spot = empty[Math.floor(Math.random() * empty.length)];
+      let val = Math.random() > 0.1 ? 2 : 4;
+      placeTile(spot.x, spot.y, val, true);
+    }
+
+    function placeTile(i, j, val, isNew = false) {
+      const tile = document.createElement("div");
+      tile.classList.add("tile");
+      if (isNew) tile.classList.add("new");
+      tile.dataset.val = val;
+      tile.textContent = val;
+      tile.style.top = `${i * tileSize + 10}px`;
+      tile.style.left = `${j * tileSize + 10}px`;
+      game.appendChild(tile);
+      board[i][j] = { val, el: tile, i, j };
+    }
+
+    function drawBoard() {
+      game.innerHTML = '';
+      for (let i = 0; i < size; i++) {
+        for (let j = 0; j < size; j++) {
+          if (board[i][j]) {
+            placeTile(i, j, board[i][j].val);
+          }
+        }
+      }
+    }
+
+    function move(dir) {
+      let moved = false;
+      let merged = Array(size).fill().map(() => Array(size).fill(false));
+      const delta = {
+        ArrowLeft: { x: 0, y: -1 },
+        ArrowRight: { x: 0, y: 1 },
+        ArrowUp: { x: -1, y: 0 },
+        ArrowDown: { x: 1, y: 0 }
+      }[dir];
+
+      const range = [...Array(size).keys()];
+      if (delta.x === 1) range.reverse();
+      if (delta.y === 1) range.reverse();
+
+      for (let x of range) {
+        for (let y of range) {
+          let cell = board[x][y];
+          if (!cell) continue;
+          let i = x, j = y;
+          while (true) {
+            let ni = i + delta.x;
+            let nj = j + delta.y;
+            if (ni < 0 || ni >= size || nj < 0 || nj >= size) break;
+            if (!board[ni][nj]) {
+              board[ni][nj] = board[i][j];
+              board[i][j] = null;
+              i = ni;
+              j = nj;
+              moved = true;
+            } else if (
+              board[ni][nj].val === board[i][j].val &&
+              !merged[ni][nj]
+            ) {
+              board[ni][nj].val *= 2;
+              game.removeChild(board[i][j].el);
+              board[ni][nj].el.textContent = board[ni][nj].val;
+              board[ni][nj].el.dataset.val = board[ni][nj].val;
+              board[ni][nj].el.classList.add("new");
+              board[i][j] = null;
+              merged[ni][nj] = true;
+              moved = true;
+              break;
+            } else break;
+          }
+        }
+      }
+
+      animateBoard();
+
+      if (moved) {
+        setTimeout(() => {
+          addTile();
+          animateBoard();
+        }, 150);
+      }
+    }
+
+    function animateBoard() {
+      for (let i = 0; i < size; i++) {
+        for (let j = 0; j < size; j++) {
+          if (board[i][j]) {
+            board[i][j].el.style.top = `${i * tileSize + 10}px`;
+            board[i][j].el.style.left = `${j * tileSize + 10}px`;
+          }
+        }
+      }
+    }
+
+    window.addEventListener("keydown", e => {
+      if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) {
+        move(e.key);
+      }
+    });
+
+    function startGame() {
+      createEmptyBoard();
+      addTile();
+      addTile();
+    }
+
+    startGame();
+  </script>
+</body>
+</html>
