@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Galaga: Cosmic Strike</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiPjxkZWZzPjxwYXR0ZXJuIGlkPSJzdGFycyIgd2lkdGg9IjUwIiBoZWlnaHQ9IjUwIiBwYXR0ZXJuVW5pdHM9InVzZXJTcGFjZU9uVXNlIj48Y2lyY2xlIGN4PSIyNSIgY3k9IjI1IiByPSIxIiBmaWxsPSIjZmZmIiBvcGFjaXR5PSIwLjMiLz48Y2lyY2xlIGN4PSIxMCIgY3k9IjEwIiByPSIwLjUiIGZpbGw9IiNmZmYiIG9wYWNpdHk9IjAuMiIvPjxjaXJjbGUgY3g9IjQwIiBjeT0iNDAiIHI9IjAuNyIgZmlsbD0iI2ZmZiIgb3BhY2l0eT0iMC4yNSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iIzAwMDExNSIvPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjc3RhcnMpIi8+PC9zdmc+');
+      font-family: 'Orbitron', sans-serif;
+      overflow: hidden;
+      cursor: default;
+    }
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+    canvas {
+      display: block;
+      margin: 20px auto;
+      background: linear-gradient(to bottom, #000022, #000);
+      border: 4px solid #00ffcc;
+      border-radius: 12px;
+      box-shadow: 0 0 30px #00ffcc, 0 0 60px rgba(0, 255, 204, 0.5);
+      transition: box-shadow 0.3s ease;
+    }
+    canvas:hover {
+      box-shadow: 0 0 40px #00ffcc, 0 0 80px rgba(0, 255, 204, 0.7);
+    }
+    #gameLink {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      color: #0dd2dcaf;
+      font-size: 18px;
+      text-decoration: none;
+      text-shadow: 0 0 10px #0e8a58;
+      padding: 5px 10px;
+      border: 2px solid #050835;
+      border-radius: 5px;
+      transition: all 0.3s;
+    }
+
+#gameLink:hover {
+  background: #070b8b44;
+  color: #00b7ff;
+  box-shadow: 0 0 15px #000bd95a;
+}
+
+    #gameOver {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: #ff0000;
+      font-size: 64px;
+      font-weight: 700;
+      text-shadow: 0 0 20px #ff0000, 0 0 40px #ff0000;
+      text-align: center;
+      display: none;
+      z-index: 20;
+      letter-spacing: 4px;
+      background: rgba(0, 0, 34, 0.7);
+      padding: 20px 40px;
+      border-radius: 12px;
+      border: 2px solid #ff0000;
+      cursor: pointer;
+    }
+    #difficultyMenu {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      z-index: 20;
+    }
+    #difficultyMenu button, #restartButton, #difficultyToggle, .difficultyButton,#gameLink {
+      background: linear-gradient(45deg, #1e3c72, #2a5298);
+      color: #00ffcc;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 20px;
+      font-weight: 700;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      text-shadow: 0 0 5px #00ffcc;
+      box-shadow: 0 0 15px rgba(0, 255, 204, 0.5), inset 0 0 10px rgba(0, 255, 204, 0.3);
+      transition: transform 0.2s, box-shadow 0.2s, background 0.3s;
+    }
+    
+#gameLink{
+  background: linear-gradient(45deg, #1e3c72, #2a5298);
+      color: #00ffcc;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      padding: 11px 22px;
+      border: none;
+      border-radius: 7px;
+      cursor: pointer;
+      text-shadow: 0 0 5px #00ffcc;
+      box-shadow: 0 0 15px rgba(0, 255, 204, 0.5), inset 0 0 10px rgba(0, 255, 204, 0.3);
+      transition: transform 0.2s, box-shadow 0.2s, background 0.3s;
+}
+
+
+    #difficultyMenu button:hover, #restartButton:hover, #difficultyToggle:hover, .difficultyButton:hover,#gameLink:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 25px rgba(0, 255, 204, 0.8), inset 0 0 15px rgba(0, 255, 204, 0.5);
+      background: linear-gradient(45deg, #2a5298, #1e3c72);
+    }
+    #restartButton {
+      position: absolute;
+      bottom: 10%;
+      left: 50%;
+      transform: translate(-50%, 50%);
+      display: none;
+    }
+    #difficultyToggle {
+      position: absolute;
+      top: 60px;
+      left: 20px;
+      font-size: 16px;
+      padding: 8px 16px;
+    }
+    #difficultyPanel {
+      position: absolute;
+      top: 110px;
+      left: 20px;
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+      background: rgba(0, 0, 34, 0.9);
+      padding: 15px;
+      border: 2px solid #00ffcc;
+      border-radius: 10px;
+      box-shadow: 0 0 20px rgba(0, 255, 204, 0.5);
+      z-index: 20;
+    }
+    #levelBanner {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: #ffffff;
+      font-size: 64px;
+      font-weight: 700;
+      text-shadow: 0 0 20px #ff00ff, 0 0 40px #ff00ff;
+      opacity: 0;
+      z-index: 10;
+      letter-spacing: 4px;
+      background: linear-gradient(45deg, rgba(255, 0, 255, 0.2), rgba(0, 255, 204, 0.2));
+      padding: 20px 40px;
+      border-radius: 12px;
+      border: 2px solid #ff00ff;
+    }
+    @keyframes fadeInOut {
+      0% { opacity: 0; }
+      20% { opacity: 1; }
+      80% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+    #levelBanner.show {
+      animation: fadeInOut 1s ease-in-out forwards;
+    }
+    @keyframes pulse {
+      0% { opacity: 0.8; }
+      50% { opacity: 1; }
+      100% { opacity: 0.8; }
+    }
+  </style>
+</head>
+<body>
+  <a id="gameLink" href="index.html">Game Menu</a>
+
+<div id="gameOver">YOU LOSE!</div>
+<div id="difficultyMenu">
+  <button onclick="startGame(2.5)">Easy</button>
+  <button onclick="startGame(3.5)">Medium</button>
+  <button onclick="startGame(4.5)">Hard</button>
+</div>
+<button id="restartButton" onclick="restartGame()">Restart</button>
+<button id="difficultyToggle" onclick="toggleDifficultyPanel()">Difficulty</button>
+<div id="difficultyPanel">
+  <button class="difficultyButton" onclick="changeDifficulty(2.5)">Easy</button>
+  <button class="difficultyButton" onclick="changeDifficulty(3.5)">Medium</button>
+  <button class="difficultyButton" onclick="changeDifficulty(4.5)">Hard</button>
+</div>
+<div id="levelBanner">Level 1</div>
+<canvas id="gameCanvas" width="480" height="640"></canvas>
+<script>
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+  const banner = document.getElementById('levelBanner');
+  const gameOverEl = document.getElementById('gameOver');
+  const difficultyMenu = document.getElementById('difficultyMenu');
+  const restartButton = document.getElementById('restartButton');
+  const difficultyPanel = document.getElementById('difficultyPanel');
+
+  let player = { x: 225, y: 580, width: 30, height: 30, speed: 5 };
+  let bullets = [];
+  let enemyBullets = [];
+  let enemies = [];
+  let score = 0;
+  let level = 1;
+  let keys = {};
+  let gameRunning = false;
+  let baseEnemySpeed = 2.5;
+  let gameLoopId;
+  let lastEnemyShot = 0;
+  let enemyKills = 0;
+  let laserActive = false;
+  let laserEndTime = 0;
+  const weapons = [
+    { width: 4, height: 10, speed: 6, color: '#ffff00', count: 1 }, // Level 1: Single shot
+    { width: 6, height: 12, speed: 7, color: '#ff00ff', count: 2 }, // Level 2: Double shot
+    { width: 3, height: 15, speed: 8, color: '#00ff00', count: 3 }, // Level 3: Triple shot
+    { width: 5, height: 10, speed: 9, color: '#ff0000', count: 2, spread: 0.1 }, // Level 4: Spread shot
+    { width: 8, height: 8, speed: 7, color: '#00ffff', count: 1, pierce: true }, // Level 5: Piercing shot
+    { width: 4, height: 20, speed: 10, color: '#ffffff', count: 3, spread: 0.15 } // Level 6: Fast triple spread
+  ];
+  const laserWeapon = { width: 6, height: 20, speed: 12, color: '#ff69b4', count: 1, continuous: true };
+  const enemyColors = ['#ff4500', '#00ff00', '#ff00ff', '#00ffff', '#ffa500', '#800080'];
+
+  const cols = 6;
+  const spacing = 60;
+
+  function showLevelBanner() {
+    banner.textContent = `Level ${level}`;
+    banner.classList.add('show');
+    setTimeout(() => {
+      banner.classList.remove('show');
+    }, 1000);
+  }
+
+  function createEnemyWave(rows) {
+    enemies = [];
+    const speed = baseEnemySpeed + (level - 1) * 0.7;
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        const color = enemyColors[Math.floor(Math.random() * enemyColors.length)];
+        enemies.push({
+          x: 40 + col * spacing,
+          y: 40 + row * spacing,
+          width: 25,
+          height: 25,
+          dx: speed,
+          color: color
+        });
+      }
+    }
+    showLevelBanner();
+  }
+
+  function drawPlayer() {
+    ctx.fillStyle = '#00ffcc';
+    ctx.beginPath();
+    // Body (central rectangle)
+    ctx.rect(player.x + player.width / 4, player.y, player.width / 2, player.height);
+    // Nose (triangle at top)
+    ctx.moveTo(player.x + player.width / 2, player.y);
+    ctx.lineTo(player.x + player.width / 4, player.y + player.height / 4);
+    ctx.lineTo(player.x + 3 * player.width / 4, player.y + player.height / 4);
+    ctx.closePath();
+    // Wings (triangles on sides)
+    ctx.moveTo(player.x, player.y + player.height / 2);
+    ctx.lineTo(player.x + player.width / 4, player.y + player.height / 2);
+    ctx.lineTo(player.x + player.width / 8, player.y + 3 * player.height / 4);
+    ctx.closePath();
+    ctx.moveTo(player.x + player.width, player.y + player.height / 2);
+    ctx.lineTo(player.x + 3 * player.width / 4, player.y + player.height / 2);
+    ctx.lineTo(player.x + 7 * player.width / 8, player.y + 3 * player.height / 4);
+    ctx.closePath();
+    // Tail (small rectangle at bottom)
+    ctx.rect(player.x + 3 * player.width / 8, player.y + player.height, player.width / 4, player.height / 4);
+    ctx.fill();
+  }
+
+  function drawEnemies() {
+    enemies.forEach(e => {
+      ctx.fillStyle = e.color;
+      ctx.beginPath();
+      // Body (central rectangle)
+      ctx.rect(e.x + e.width / 4, e.y, e.width / 2, e.height);
+      // Nose (triangle at bottom, facing down)
+      ctx.moveTo(e.x + e.width / 2, e.y + e.height);
+      ctx.lineTo(e.x + e.width / 4, e.y + 3 * e.height / 4);
+      ctx.lineTo(e.x + 3 * e.width / 4, e.y + 3 * e.height / 4);
+      ctx.closePath();
+      // Wings (triangles on sides)
+      ctx.moveTo(e.x, e.y + e.height / 2);
+      ctx.lineTo(e.x + e.width / 4, e.y + e.height / 2);
+      ctx.lineTo(e.x + e.width / 8, e.y + e.height / 4);
+      ctx.closePath();
+      ctx.moveTo(e.x + e.width, e.y + e.height / 2);
+      ctx.lineTo(e.x + 3 * e.width / 4, e.y + e.height / 2);
+      ctx.lineTo(e.x + 7 * e.width / 8, e.y + e.height / 4);
+      ctx.closePath();
+      // Tail (small rectangle at top)
+      ctx.rect(e.x + 3 * e.width / 8, e.y - e.height / 4, e.width / 4, e.height / 4);
+      ctx.fill();
+    });
+  }
+
+  function updateEnemies() {
+    let moveDown = false;
+    enemies.forEach(e => {
+      e.x += e.dx;
+      if (e.x + e.width > canvas.width || e.x < 0) {
+        moveDown = true;
+      }
+      if (e.y + e.height > player.y) {
+        endGame();
+      }
+    });
+    if (moveDown) {
+      enemies.forEach(e => {
+        e.dx *= -1;
+        e.y += 20;
+      });
+    }
+  }
+
+  function drawBullets() {
+    bullets.forEach((b, i) => {
+      ctx.fillStyle = b.color;
+      b.y -= b.speed;
+      ctx.fillRect(b.x, b.y, b.width, b.height);
+      if (b.y < 0) bullets.splice(i, 1);
+    });
+    ctx.fillStyle = '#ff4500';
+    enemyBullets.forEach((b, i) => {
+      b.y += b.speed;
+      ctx.fillRect(b.x, b.y, b.width, b.height);
+      if (b.y > canvas.height) enemyBullets.splice(i, 1);
+    });
+  }
+
+  function enemyShoot() {
+    const now = Date.now();
+    if (now - lastEnemyShot > 2000 && enemies.length > 0) {
+      const shooter = enemies[Math.floor(Math.random() * enemies.length)];
+      enemyBullets.push({
+        x: shooter.x + shooter.width / 2 - 2,
+        y: shooter.y + shooter.height,
+        width: 4,
+        height: 10,
+        speed: 4
+      });
+      lastEnemyShot = now;
+    }
+  }
+
+  function detectCollisions() {
+    bullets.forEach((b, bi) => {
+      enemies.forEach((e, ei) => {
+        if (
+          b.x < e.x + e.width &&
+          b.x + b.width > e.x &&
+          b.y < e.y + e.height &&
+          b.y + b.height > e.y
+        ) {
+          if (!b.pierce) bullets.splice(bi, 1);
+          enemies.splice(ei, 1);
+          score += 10;
+          enemyKills++;
+          if (enemyKills >= 10) {
+            enemyKills = 0;
+            laserActive = true;
+            laserEndTime = Date.now() + 5000;
+          }
+        }
+      });
+    });
+
+    enemies.forEach(e => {
+      if (
+        player.x < e.x + e.width &&
+        player.x + player.width > e.x &&
+        player.y < e.y + e.height &&
+        player.y + player.height > e.y
+      ) {
+        endGame();
+      }
+    });
+
+    enemyBullets.forEach((b, bi) => {
+      if (
+        player.x < b.x + b.width &&
+        player.x + player.width > b.x &&
+        player.y < b.y + b.height &&
+        player.y + player.height > b.y
+      ) {
+        endGame();
+      }
+    });
+
+    if (enemies.length === 0) {
+      level++;
+      createEnemyWave(Math.min(level + 1, 6));
+    }
+
+    if (laserActive && Date.now() > laserEndTime) {
+      laserActive = false;
+    }
+  }
+
+  function endGame() {
+    gameRunning = false;
+    cancelAnimationFrame(gameLoopId);
+    gameOverEl.style.display = 'block';
+    restartButton.style.display = 'block';
+    ctx.font = '20px Orbitron';
+    ctx.fillStyle = '#00ffcc';
+    ctx.textAlign = 'left';
+    ctx.fillText(`Score: ${score}`, 20, 30);
+  }
+
+  function updatePlayer() {
+    if (keys['ArrowLeft'] && player.x > 0) player.x -= player.speed;
+    if (keys['ArrowRight'] && player.x + player.width < canvas.width) player.x += player.speed;
+  }
+
+  function update() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.font = '20px Orbitron';
+    ctx.fillStyle = '#00ffcc';
+    ctx.textAlign = 'left';
+    ctx.fillText(`Score: ${score} | Level: ${level}`, 20, 30);
+    updatePlayer();
+    updateEnemies();
+    enemyShoot();
+    drawPlayer();
+    drawEnemies();
+    drawBullets();
+    detectCollisions();
+  }
+
+  function gameLoop() {
+    if (gameRunning) {
+      update();
+      gameLoopId = requestAnimationFrame(gameLoop);
+    }
+  }
+
+  function startGame(speed) {
+    baseEnemySpeed = speed;
+    gameRunning = true;
+    score = 0;
+    level = 1;
+    enemyKills = 0;
+    laserActive = false;
+    player = { x: 225, y: 580, width: 30, height: 30, speed: 5 };
+    bullets = [];
+    enemyBullets = [];
+    enemies = [];
+    lastEnemyShot = 0;
+    difficultyMenu.style.display = 'none';
+    gameOverEl.style.display = 'none';
+    restartButton.style.display = 'none';
+    difficultyPanel.style.display = 'none';
+    createEnemyWave(2);
+    gameLoop();
+  }
+
+  function restartGame() {
+    gameOverEl.style.display = 'none';
+    restartButton.style.display = 'none';
+    difficultyMenu.style.display = 'flex';
+    difficultyPanel.style.display = 'none';
+  }
+
+  function toggleDifficultyPanel() {
+    difficultyPanel.style.display = difficultyPanel.style.display === 'flex' ? 'none' : 'flex';
+  }
+
+  function changeDifficulty(speed) {
+    baseEnemySpeed = speed;
+    enemies.forEach(e => {
+      e.dx = Math.sign(e.dx) * (baseEnemySpeed + (level - 1) * 0.7);
+    });
+    difficultyPanel.style.display = 'none';
+  }
+
+  document.addEventListener('keydown', e => {
+    if (gameRunning) {
+      keys[e.key] = true;
+      if (e.key === ' ' && bullets.length < 5) {
+        let weapon = laserActive ? laserWeapon : weapons[Math.min(level - 1, weapons.length - 1)];
+        for (let i = 0; i < weapon.count; i++) {
+          let dx = 0;
+          if (weapon.spread) {
+            dx = (i - (weapon.count - 1) / 2) * weapon.spread;
+          }
+          bullets.push({
+            x: player.x + player.width / 2 - weapon.width / 2,
+            y: player.y,
+            width: weapon.width,
+            height: weapon.height,
+            speed: weapon.speed,
+            color: weapon.color,
+            pierce: weapon.pierce || false,
+            dx: dx
+          });
+        }
+      }
+    }
+  });
+
+  document.addEventListener('keyup', e => {
+    keys[e.key] = false;
+  });
+
+  window.addEventListener('load', () => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  });
+</script>
+</body>
+</html>
