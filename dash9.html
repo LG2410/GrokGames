@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Doodle Jump - Neon Edition</title>
+  <meta charset="UTF-8">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap');
+    html, body {
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: linear-gradient(to top, #0f2027, #203a43, #2c5364);
+      font-family: 'Segoe UI', sans-serif;
+    }
+
+    canvas {
+      display: block;
+      margin: auto;
+      background: rgba(0, 0, 0, 0.2);
+      border: 2px solid #00f5ff;
+      box-shadow: 0 0 20px #00f5ff;
+      border-radius: 10px;
+    }
+    #gameLink {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      color: #00f5ff;
+      font-size: 18px;
+      text-decoration: none;
+      text-shadow: 0 0 10px #1189c174;
+      padding: 5px 10px;
+      border: 2px solid #0a506a00;
+      border-radius: 5px;
+      transition: all 0.3s;
+    }
+
+#gameLink:hover {
+  background: #0498d3;
+  color: #040b13;
+  box-shadow: 0 0 15px #ced900;
+}
+
+
+    #restartBtn {
+      position: absolute;
+      top: 40%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      padding: 10px 20px;
+      font-size: 18px;
+      background-color: #00f5ff;
+      color: black;
+      border: none;
+      border-radius: 8px;
+      display: none;
+      cursor: pointer;
+      box-shadow: 0 0 10px #00f5ff;
+    }
+
+    #hud {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      color: #00ffcc;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 14px;
+      text-shadow: 0 0 5px #00f5ff;
+      line-height: 1.5;
+      z-index: 10;
+      white-space: pre-line;
+    }
+  </style>
+</head>
+<body>
+      <a id="gameLink" href="index.html">Game Menu</a>
+<div id="hud"></div>
+<canvas id="game" width="375" height="667"></canvas>
+<button id="restartBtn" onclick="location.reload()">Restart</button>
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const restartBtn = document.getElementById('restartBtn');
+
+const platformWidth = 65;
+const platformHeight = 15;
+let minPlatformSpace = 15;
+let maxPlatformSpace = 20;
+const gravity = 0.33;
+const drag = 0.3;
+const bounceVelocity = -12;
+
+let score = 0;
+let highScore = 0;
+let bigJumpAvailable = true;
+let jumpCooldown = 0;
+const jumpCooldownTime = 5000; // 5 seconds
+
+let platforms = [{
+  x: canvas.width / 2 - platformWidth / 2,
+  y: canvas.height - 50
+}];
+
+function random(min, max) {
+  return Math.random() * (max - min) + min;
+}
+
+let y = canvas.height - 50;
+while (y > 0) {
+  y -= platformHeight + random(minPlatformSpace, maxPlatformSpace);
+  let x;
+  do {
+    x = random(25, canvas.width - 25 - platformWidth);
+  } while (
+    y > canvas.height / 2 &&
+    x > canvas.width / 2 - platformWidth * 1.5 &&
+    x < canvas.width / 2 + platformWidth / 2
+  );
+  platforms.push({ x, y });
+}
+
+const doodle = {
+  width: 40,
+  height: 60,
+  x: canvas.width / 2 - 20,
+  y: canvas.height - 110,
+  dx: 0,
+  dy: 0
+};
+
+let prevY = doodle.y;
+let playerDir = 0;
+let keydown = false;
+let gameOver = false;
+
+function drawDoodle(x, y) {
+  ctx.fillStyle = "#111";
+  ctx.fillRect(x + 8, y + 10, 24, 40);
+  ctx.fillStyle = "#ff0000";
+  ctx.fillRect(x + 8, y + 8, 24, 6);
+  ctx.beginPath();
+  ctx.moveTo(x + 28, y + 8);
+  ctx.lineTo(x + 36, y + 12);
+  ctx.lineTo(x + 28, y + 16);
+  ctx.fill();
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(x + 14, y + 18, 4, 4);
+  ctx.fillRect(x + 22, y + 18, 4, 4);
+  ctx.fillStyle = "#222";
+  ctx.fillRect(x + 10, y + 50, 8, 10);
+  ctx.fillRect(x + 22, y + 50, 8, 10);
+}
+
+function drawScore() {
+  const hud = document.getElementById("hud");
+  let display = `NINJA DOODLE\nScore: ${score}\nHigh Score: ${highScore}`;
+  if (!bigJumpAvailable) {
+    let remaining = Math.max(0, ((jumpCooldownTime - (Date.now() - jumpCooldown)) / 1000).toFixed(1));
+    display += `\nBig Jump Ready in: ${remaining}s`;
+  } else {
+    display += `\nPress SPACE for Big Jump`;
+  }
+  hud.textContent = display;
+}
+
+function loop() {
+  if (gameOver) return;
+  requestAnimationFrame(loop);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  doodle.dy += gravity;
+  if (doodle.y < canvas.height / 2 && doodle.dy < 0) {
+    platforms.forEach(p => p.y += -doodle.dy);
+    while (platforms[platforms.length - 1].y > 0) {
+      platforms.push({
+        x: random(25, canvas.width - 25 - platformWidth),
+        y: platforms[platforms.length - 1].y - (platformHeight + random(minPlatformSpace, maxPlatformSpace))
+      });
+      minPlatformSpace += 0.4;
+      maxPlatformSpace += 0.4;
+      maxPlatformSpace = Math.min(maxPlatformSpace, canvas.height / 2);
+    }
+  } else {
+    doodle.y += doodle.dy;
+  }
+
+  if (!keydown) {
+    if (playerDir < 0) {
+      doodle.dx += drag;
+      if (doodle.dx > 0) {
+        doodle.dx = 0;
+        playerDir = 0;
+      }
+    } else if (playerDir > 0) {
+      doodle.dx -= drag;
+      if (doodle.dx < 0) {
+        doodle.dx = 0;
+        playerDir = 0;
+      }
+    }
+  }
+
+  doodle.x += doodle.dx;
+  if (doodle.x + doodle.width < 0) doodle.x = canvas.width;
+  else if (doodle.x > canvas.width) doodle.x = -doodle.width;
+
+  ctx.fillStyle = "#00ffcc";
+  platforms.forEach(platform => {
+    ctx.beginPath();
+    ctx.roundRect(platform.x, platform.y, platformWidth, platformHeight, 5);
+    ctx.fill();
+    if (
+      doodle.dy > 0 &&
+      prevY + doodle.height <= platform.y &&
+      doodle.x < platform.x + platformWidth &&
+      doodle.x + doodle.width > platform.x &&
+      doodle.y < platform.y + platformHeight &&
+      doodle.y + doodle.height > platform.y
+    ) {
+      doodle.y = platform.y - doodle.height;
+      doodle.dy = bounceVelocity;
+      score += 1;
+    }
+  });
+
+  drawDoodle(doodle.x, doodle.y);
+  drawScore();
+  prevY = doodle.y;
+  platforms = platforms.filter(p => p.y < canvas.height);
+
+  if (doodle.y > canvas.height) {
+    gameOver = true;
+    highScore = Math.max(score, highScore);
+    ctx.fillStyle = "#ff4444";
+    ctx.font = "28px Segoe UI";
+    ctx.textAlign = "center";
+    ctx.fillText("Game Over!", canvas.width / 2, canvas.height / 2);
+    restartBtn.style.display = "block";
+  }
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowLeft') {
+    keydown = true;
+    playerDir = -1;
+    doodle.dx = -3.5;
+  } else if (e.key === 'ArrowRight') {
+    keydown = true;
+    playerDir = 1;
+    doodle.dx = 3.5;
+  } else if (e.code === 'Space' && bigJumpAvailable) {
+    doodle.dy = -20;
+    bigJumpAvailable = false;
+    jumpCooldown = Date.now();
+    setTimeout(() => bigJumpAvailable = true, jumpCooldownTime);
+  }
+});
+
+document.addEventListener('keyup', () => keydown = false);
+
+CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
+  this.beginPath();
+  this.moveTo(x + r, y);
+  this.lineTo(x + w - r, y);
+  this.quadraticCurveTo(x + w, y, x + w, y + r);
+  this.lineTo(x + w, y + h - r);
+  this.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  this.lineTo(x + r, y + h);
+  this.quadraticCurveTo(x, y + h, x, y + h - r);
+  this.lineTo(x, y + r);
+  this.quadraticCurveTo(x, y, x + r, y);
+  this.closePath();
+  this.fill();
+};
+
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
