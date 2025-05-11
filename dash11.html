@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Basketball Shooter</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: #1c1c1c;
+      font-family: 'Arial', sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    #gameLink {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      color: linear-gradient(135deg, #ffa600, #240282);
+      font-size: 18px;
+      text-decoration: none;
+      text-shadow: 0 0 10px #c16011;
+      padding: 5px 10px;
+      border: 2px solid #084cd5;
+      border-radius: 5px;
+      transition: all 0.3s;
+    }
+
+#gameLink:hover {
+  background: #df86027b;
+  color: #0d1b2a;
+  box-shadow: 0 0 15px #ced90074;
+}
+
+
+    canvas {
+      display: block;
+      background: radial-gradient(ellipse at center, #2c3e50 0%, #000000 100%);
+    }
+
+    #scoreBoard {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      color: #fff;
+      font-size: 24px;
+      z-index: 10;
+    }
+    #menu{
+   position: absolute;
+  top: 5px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 12px 28px;
+  background: linear-gradient(135deg, #ffa600, #240282);
+  color: white;
+  font-size: 16px;
+  font-weight: 511;
+  font-family: 'Orbitron', sans-serif;
+  border-radius: 16px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.4);
+  z-index: 20;
+  cursor: default;
+  user-select: none;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+    }
+
+  </style>
+</head>
+<body>
+    <p id="menu">Basketball</p>
+    <a id="gameLink" href="index.html">Game Menu</a>
+  <div id="scoreBoard">Score: 0</div>
+  <canvas id="gameCanvas" width="800" height="600"></canvas>
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    let score = 0;
+    let hoopShake = 0;
+    let netWiggle = 0;
+    let showScoreFlash = false;
+    let scoreFlashTimer = 0;
+    const gravity = 0.3;
+    const balls = [];
+
+    const hoop = {
+      x: canvas.width - 120,
+      y: 200,
+      width: 60,
+      height: 10,
+      offsetX: 0,
+      backboardHeight: 120  // הגדלתי את הגובה של הקרש
+    };
+
+    const player = {
+      x: 60,
+      y: canvas.height - 60,
+      radius: 20,
+      jumpOffset: 0
+    };
+
+    let mouseX = 0;
+    let mouseY = 0;
+
+    canvas.addEventListener('mousemove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      mouseX = e.clientX - rect.left;
+      mouseY = e.clientY - rect.top;
+    });
+
+    canvas.addEventListener('click', () => {
+      const dx = mouseX - player.x;
+      const dy = mouseY - player.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      const angle = Math.atan2(dy, dx);
+      const power = Math.min(distance / 5, 18);
+
+      balls.push({
+        x: player.x,
+        y: player.y,
+        dx: Math.cos(angle) * power,
+        dy: Math.sin(angle) * power,
+        radius: 13,
+        scored: false
+      });
+
+      player.jumpOffset = -10;
+
+      setTimeout(() => {
+        player.x = Math.random() * (canvas.width - 100) + 50;
+      }, 1000);
+    });
+
+    function drawPlayer() {
+      player.jumpOffset += 1;
+      if (player.jumpOffset > 0) player.jumpOffset = 0;
+
+      const px = player.x;
+      const py = player.y + player.jumpOffset;
+
+      // Head
+      ctx.beginPath();
+      ctx.arc(px, py - 40, 14, 0, Math.PI * 2);
+      ctx.fillStyle = '#f5c16c';
+      ctx.fill();
+      ctx.closePath();
+
+      // Body
+      ctx.beginPath();
+      ctx.moveTo(px, py - 25);
+      ctx.lineTo(px, py + 10);
+      ctx.strokeStyle = '#f39c12';
+      ctx.lineWidth = 4;
+      ctx.stroke();
+
+      // Arms
+      ctx.beginPath();
+      ctx.moveTo(px - 15, py - 20);
+      ctx.lineTo(px + 15, py - 10);
+      ctx.stroke();
+
+      // Legs
+      ctx.beginPath();
+      ctx.moveTo(px, py + 10);
+      ctx.lineTo(px - 10, py + 30);
+      ctx.moveTo(px, py + 10);
+      ctx.lineTo(px + 10, py + 30);
+      ctx.stroke();
+
+      // Aim line
+      ctx.beginPath();
+      ctx.moveTo(mouseX, mouseY);
+      ctx.lineTo(px, py);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    function drawHoop() {
+      const shakeOffset = hoopShake > 0 ? Math.sin(hoopShake) * 5 : 0;
+
+      // Backboard (הגבהתי את הקרש ל-120 פיקסלים)
+      ctx.fillStyle = '#e0e0e0';
+      ctx.fillRect(hoop.x + hoop.width + shakeOffset + 5, hoop.y - hoop.backboardHeight, 10, hoop.backboardHeight);
+      ctx.strokeStyle = '#888';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(hoop.x + hoop.width + shakeOffset + 5, hoop.y - hoop.backboardHeight, 10, hoop.backboardHeight);
+
+      // Rim
+      ctx.fillStyle = '#d84315';
+      ctx.fillRect(hoop.x + shakeOffset, hoop.y, hoop.width, hoop.height);
+      ctx.beginPath();
+      ctx.arc(hoop.x + hoop.width / 2 + shakeOffset, hoop.y + 5, 25, 0, Math.PI, false);
+      ctx.lineWidth = 5;
+      ctx.strokeStyle = '#ff5722';
+      ctx.stroke();
+
+      // Net (wiggling lines)
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 1.5;
+      const centerX = hoop.x + hoop.width / 2 + shakeOffset;
+      const centerY = hoop.y + 5;
+      for (let i = 0; i < 12; i++) {
+        const angle = Math.PI * (i / 11);
+        const x1 = centerX + Math.cos(angle) * 20;
+        const y1 = centerY + Math.sin(angle) * 20;
+        const wiggle = Math.sin(netWiggle + i) * 2;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x1 + wiggle, y1 + 40);
+        ctx.stroke();
+      }
+    }
+
+    function drawBalls() {
+      for (let i = balls.length - 1; i >= 0; i--) {
+        const ball = balls[i];
+        ball.x += ball.dx;
+        ball.y += ball.dy;
+        ball.dy += gravity;
+
+        // Rim collision
+        const rimLeft = hoop.x;
+        const rimRight = hoop.x + hoop.width;
+        const rimY = hoop.y + 5;
+        const distToRim = Math.hypot(ball.x - (rimLeft + hoop.width / 2), ball.y - rimY);
+        if (!ball.scored && distToRim >= 20 && distToRim <= 26 && ball.dy > 0) {
+          ball.dy *= -0.5;
+          ball.dx += (Math.random() - 0.5) * 2;
+          hoop.offsetX = (Math.random() - 0.5) * 10; // Move the hoop when the ball hits it
+        }
+
+        // Backboard collision
+        const backboardX = hoop.x + hoop.width + 5;
+        if (
+          ball.x + ball.radius > backboardX &&
+          ball.x < backboardX + 10 &&
+          ball.y > hoop.y - hoop.backboardHeight &&
+          ball.y < hoop.y + 50 &&
+          !ball.scored
+        ) {
+          ball.dx *= -0.6;
+          ball.x = backboardX - ball.radius;
+          ball.dy = -Math.abs(ball.dy);  // Make the ball bounce upwards when hitting the backboard
+        }
+
+        // Ball design
+        ctx.beginPath();
+        ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+        const grad = ctx.createRadialGradient(ball.x, ball.y, 3, ball.x, ball.y, ball.radius);
+        grad.addColorStop(0, '#ffb300');
+        grad.addColorStop(1, '#e65100');
+        ctx.fillStyle = grad;
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#6d4c41';
+        ctx.stroke();
+
+        // Ball lines
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = '#4e342e';
+        ctx.beginPath();
+        ctx.moveTo(ball.x - ball.radius, ball.y);
+        ctx.lineTo(ball.x + ball.radius, ball.y);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(ball.x, ball.y - ball.radius);
+        ctx.lineTo(ball.x, ball.y + ball.radius);
+        ctx.stroke();
+
+        // Scoring
+        if (
+          ball.y - ball.radius <= hoop.y + hoop.height &&
+          ball.y + ball.radius >= hoop.y &&
+          ball.x > hoop.x &&
+          ball.x < hoop.x + hoop.width &&
+          !ball.scored
+        ) {
+          score++;
+          hoopShake = 10;
+          netWiggle = 0;
+          showScoreFlash = true;
+          scoreFlashTimer = 30;
+          document.getElementById('scoreBoard').innerText = 'Score: ' + score;
+          ball.scored = true;
+          ball.dx = 0;
+          ball.x = hoop.x + hoop.width / 2;
+          ball.dy = 2;
+        }
+
+        if (
+          ball.y > canvas.height ||
+          ball.x > canvas.width ||
+          ball.x < 0 ||
+          (ball.scored && ball.y > canvas.height - 10)
+        ) {
+          balls.splice(i, 1);
+        }
+      }
+    }
+
+    function draw() {
+      if (hoopShake > 0) hoopShake--;
+      if (scoreFlashTimer > 0) scoreFlashTimer--;
+      else showScoreFlash = false;
+      netWiggle += 0.2;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (showScoreFlash) {
+        ctx.fillStyle = 'rgba(255, 255, 0, 0.4)';
+        ctx.font = 'bold 60px Arial';
+        ctx.fillText('+1!', canvas.width / 2 - 40, 100);
+      }
+
+      drawPlayer();
+      drawHoop();
+      drawBalls();
+      requestAnimationFrame(draw);
+    }
+
+    draw();
+  </script>
+</body>
+</html>
