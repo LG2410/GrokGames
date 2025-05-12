@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Head Soccer Game</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    canvas {
+      display: block;
+      margin: 0 auto;
+      border: 3px solid #333;
+      background: url('https://i.pinimg.com/736x/95/22/67/952267e5132e0ba6fe7ccf27122d47a9.jpg') no-repeat center center;
+      background-size: cover;
+    }
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      background: url('https://cdn.vectorstock.com/i/1000v/91/48/soccer-football-stadium-background-vector-14839148.jpg') no-repeat center center fixed;
+      background-size: cover;
+      color: #ffd700;
+    }
+    #gameLink {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      color: #bc8a1e;
+      font-size: 18px;
+      text-decoration: none;
+      text-shadow: 0 0 10px #c16011;
+      padding: 5px 10px;
+      border: 2px solid #d59108;
+      border-radius: 5px;
+      transition: all 0.3s;
+    }
+
+#gameLink:hover {
+  background: #d3be04;
+  color: #0d1b2a;
+  box-shadow: 0 0 15px #ced900;
+}
+
+  </style>
+</head>
+<body>
+    <a id="gameLink" href="index.html">Game Menu</a>
+  <h1 style="color: #ffd700; font-size: 36px; text-shadow: 2px 2px 5px black;">Head Soccer</h1>
+  <canvas id="gameCanvas" width="800" height="400"></canvas>
+  <p style="color: #fff; text-shadow: 1px 1px 3px #000; background-color: rgba(0,0,0,0.4); display: inline-block; padding: 5px 15px; border-radius: 10px;">Use ← ↑ → to move and jump. Press PageDown or Space to kick the ball</p>
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    const keys = {};
+    document.addEventListener("keydown", e => keys[e.code] = true);
+    document.addEventListener("keyup", e => keys[e.code] = false);
+
+    const ground = canvas.height - 50;
+
+    const player = { x: 100, y: ground - 60, width: 50, height: 60, color: "blue", vx: 0, vy: 0, onGround: true, score: 0, kicking: false };
+    const enemy = { x: 650, y: ground - 60, width: 50, height: 60, color: "red", vx: 2, vy: 0, onGround: true, direction: -1, score: 0, kickCooldown: 0 };
+    const ball = { x: canvas.width / 2, y: ground - 250, radius: 15, vx: 3, vy: -8 };
+
+    let gameTime = 0;
+    let lastUpdateTime = Date.now();
+    let half = 1;
+    let gameOver = false;
+    let gameStarted = false;
+    let message = '';
+    let messageTimer = 0;
+
+    function resetBall() {
+      ball.x = canvas.width / 2;
+      ball.y = ground - 250;
+      ball.vx = (Math.random() > 0.5 ? 1 : -1) * 3;
+      ball.vy = -8;
+    }
+
+    function kickBallBy(entity) {
+      const dx = ball.x - (entity.x + entity.width / 2);
+      const dy = ball.y - (entity.y + entity.height / 2);
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      if (distance < 60) {
+        ball.vx = dx > 0 ? 5 : -5;
+        ball.vy = -8;
+      }
+    }
+
+    function collideEntity(entity) {
+      const dx = ball.x - (entity.x + entity.width / 2);
+      const dy = ball.y - (entity.y - 10);
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      const headRadius = 25;
+      if (distance < ball.radius + headRadius) {
+        ball.vx += dx * 0.1;
+        ball.vy = -6;
+      }
+      if (
+        ball.x + ball.radius > entity.x &&
+        ball.x - ball.radius < entity.x + entity.width &&
+        ball.y + ball.radius > entity.y + 20 &&
+        ball.y - ball.radius < entity.y + entity.height
+      ) {
+        ball.vx *= -0.8;
+        ball.vy *= -0.6;
+      }
+    }
+
+    function drawScoreBoard() {
+      const minutes = Math.floor(gameTime / 60);
+      const seconds = (gameTime % 60).toString().padStart(2, '0');
+      ctx.save();
+      ctx.textAlign = 'left';
+      ctx.fillStyle = 'rgba(0,0,0,0.8)';
+      ctx.fillRect(20, 20, 280, 100);
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(20, 20, 280, 100);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 18px Courier New';
+      ctx.fillText('SCOREBOARD', 30, 40);
+      ctx.font = 'bold 24px Courier New';
+      ctx.fillStyle = '#00f';
+      ctx.fillText(`BLUE: ${player.score}`, 30, 70);
+      ctx.fillStyle = '#f00';
+      ctx.fillText(`RED: ${enemy.score}`, 150, 70);
+      ctx.fillStyle = '#00bfff';
+      ctx.font = 'bold 18px Courier New';
+      ctx.fillText(`TIME: ${minutes}:${seconds} | HALF: ${half}`, 30, 95);
+      ctx.restore();
+    }
+
+    function drawMessage() {
+      if (message && messageTimer > 0) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(canvas.width / 2 - 150, canvas.height / 2 - 30, 300, 60);
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(canvas.width / 2 - 150, canvas.height / 2 - 30, 300, 60);
+        ctx.fillStyle = '#ffd700';
+        ctx.font = 'bold 24px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(message, canvas.width / 2, canvas.height / 2 + 8);
+        messageTimer--;
+      }
+    }
+
+    function showMessage(text, duration = 120) {
+      message = text;
+      messageTimer = duration;
+    }
+
+    function update() {
+      if (keys["ArrowLeft"]) player.vx = -5;
+      else if (keys["ArrowRight"]) player.vx = 5;
+      else player.vx = 0;
+      if (keys["ArrowUp"] && player.onGround) {
+        player.vy = -12;
+        player.onGround = false;
+      }
+      if ((keys["PageDown"] || keys["Space"]) && !player.kicking) {
+        player.kicking = true;
+        kickBallBy(player);
+        setTimeout(() => player.kicking = false, 200);
+      }
+      player.x += player.vx;
+      player.vy += 0.6;
+      player.y += player.vy;
+      if (player.y + player.height >= ground) {
+        player.y = ground - player.height;
+        player.vy = 0;
+        player.onGround = true;
+      }
+      enemy.x += enemy.vx * enemy.direction;
+      if ((enemy.direction === -1 && enemy.x < 500) || (enemy.direction === 1 && enemy.x > 750 - enemy.width)) {
+        enemy.direction *= -1;
+      }
+      const ballAbove = ball.y < enemy.y && Math.abs(ball.x - (enemy.x + enemy.width / 2)) < 60;
+      if (ballAbove && enemy.onGround) {
+        enemy.vy = -15;
+        enemy.onGround = false;
+      }
+      enemy.vy += 0.6;
+      enemy.y += enemy.vy;
+      if (enemy.y + enemy.height >= ground) {
+        enemy.y = ground - enemy.height;
+        enemy.vy = 0;
+        enemy.onGround = true;
+      }
+      if (enemy.kickCooldown <= 0) {
+        const dx = ball.x - (enemy.x + enemy.width / 2);
+        const dy = ball.y - (enemy.y + enemy.height / 2);
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        if (distance < 60) {
+          kickBallBy(enemy);
+          enemy.kickCooldown = 60;
+        }
+      } else {
+        enemy.kickCooldown--;
+      }
+      ball.vy += 0.3;
+      ball.x += ball.vx;
+      ball.y += ball.vy;
+      if (ball.y + ball.radius > ground) {
+        ball.y = ground - ball.radius;
+        ball.vy *= -0.7;
+      }
+      if (ball.x - ball.radius <= 10 && ball.y + ball.radius >= ground - 160 && ball.y + ball.radius <= ground && ball.x > 0 && ball.x < 15) {
+        enemy.score++;
+        resetBall();
+      } else if (ball.x - ball.radius < 0) {
+        ball.x = 15;
+        ball.vx *= -0.5;
+      }
+      if (ball.x + ball.radius >= canvas.width - 10 && ball.y + ball.radius >= ground - 160 && ball.y + ball.radius <= ground && ball.x > canvas.width - 15 && ball.x < canvas.width) {
+        player.score++;
+        resetBall();
+      } else if (ball.x + ball.radius > canvas.width) {
+        ball.x = canvas.width - 15;
+        ball.vx *= -0.5;
+      }
+      collideEntity(player);
+      collideEntity(enemy);
+    }
+
+    function drawHuman(x, y, color, isKicking = false) {
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(x + 25, y, 20, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillRect(x + 15, y + 20, 20, 30);
+      ctx.fillRect(x + 10, y + 20, 5, 20);
+      ctx.fillRect(x + 35, y + 20, 5, 20);
+      if (isKicking) {
+        ctx.fillRect(x + 15, y + 45, 5, 20);
+        ctx.fillRect(x + 30, y + 45, 5, 20);
+      } else {
+        ctx.fillRect(x + 15, y + 50, 5, 10);
+        ctx.fillRect(x + 30, y + 50, 5, 10);
+      }
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "#4CAF50";
+      ctx.fillRect(0, ground, canvas.width, 50);
+      ctx.fillStyle = "#aaa";
+      ctx.fillRect(0, ground - 160, 10, 160);
+      ctx.strokeStyle = "#fff";
+      ctx.beginPath();
+      ctx.moveTo(10, ground - 160);
+      ctx.lineTo(10, ground);
+      ctx.stroke();
+      ctx.fillRect(canvas.width - 10, ground - 160, 10, 160);
+      ctx.beginPath();
+      ctx.moveTo(canvas.width - 10, ground - 160);
+      ctx.lineTo(canvas.width - 10, ground);
+      ctx.stroke();
+      drawHuman(player.x, player.y, player.color, player.kicking);
+      drawHuman(enemy.x, enemy.y, enemy.color);
+      ctx.beginPath();
+      ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+      const gradient = ctx.createRadialGradient(ball.x, ball.y, 5, ball.x, ball.y, ball.radius);
+      gradient.addColorStop(0, "#ffffff");
+      gradient.addColorStop(1, "#000000");
+      ctx.fillStyle = gradient;
+      ctx.fill();
+      drawScoreBoard();
+      drawMessage();
+    }
+
+    function loop() {
+      if (!gameStarted) {
+        draw();
+        requestAnimationFrame(loop);
+        return;
+      }
+      update();
+      draw();
+      if (!gameOver && gameStarted) {
+        const now = Date.now();
+        if (now - lastUpdateTime >= 1000) {
+          gameTime++;
+          lastUpdateTime = now;
+        }
+        if (gameTime === 90 && half === 1) {
+          half = 2;
+          resetBall();
+          showMessage('Half 1 Finished!');
+        } else if (gameTime >= 180) {
+          gameOver = true;
+          const winner = player.score > enemy.score ? 'Blue' : player.score < enemy.score ? 'Red' : 'No one';
+          showMessage(`Game Over! ${winner} Wins!`);
+          const restartButton = document.createElement('button');
+          restartButton.textContent = 'Restart';
+          restartButton.style.position = 'absolute';
+          restartButton.style.top = '60%';
+          restartButton.style.left = '50%';
+          restartButton.style.transform = 'translate(-50%, -50%)';
+          restartButton.style.fontSize = '22px';
+          restartButton.style.padding = '10px 20px';
+          restartButton.style.background = '#ffffff';
+          restartButton.style.color = '#000';
+          restartButton.style.border = '2px solid #000';
+          restartButton.style.borderRadius = '10px';
+          restartButton.style.cursor = 'pointer';
+          document.body.appendChild(restartButton);
+          restartButton.addEventListener('click', () => {
+            location.reload();
+          });
+          return;
+        }
+      }
+      requestAnimationFrame(loop);
+    }
+
+    const startButton = document.createElement('button');
+    startButton.textContent = 'Start Game';
+    startButton.style.position = 'absolute';
+    startButton.style.top = '50%';
+    startButton.style.left = '50%';
+    startButton.style.transform = 'translate(-50%, -50%)';
+    startButton.style.fontSize = '24px';
+    startButton.style.padding = '10px 20px';
+    startButton.style.background = '#ffd700';
+    startButton.style.color = '#000';
+    startButton.style.border = '2px solid #fff';
+    startButton.style.borderRadius = '10px';
+    startButton.style.cursor = 'pointer';
+    document.body.appendChild(startButton);
+    startButton.addEventListener('click', () => {
+      gameStarted = true;
+      lastUpdateTime = Date.now();
+      startButton.remove();
+    });
+    loop();
+  </script>
+</body>
+</html>
