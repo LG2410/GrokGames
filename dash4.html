@@ -129,7 +129,6 @@
 
     let board, currentPiece, nextPiece, score, gameOver, dropInterval, lastTime, dropCounter;
     let heldPiece = null;
-    let holdUsed = false;
 
     function resetGame() {
       board = Array(ROWS).fill().map(() => Array(COLS).fill(0));
@@ -143,7 +142,6 @@
       nextPiece = generatePiece();
       currentPiece = createPiece();
       heldPiece = null;
-      holdUsed = false;
       drawHoldPiece();
     }
 
@@ -164,18 +162,16 @@
     }
 
     function holdCurrentPiece() {
-      if (holdUsed) return;
       if (!heldPiece) {
         heldPiece = JSON.parse(JSON.stringify(currentPiece));
         currentPiece = createPiece();
       } else {
-        const temp = JSON.parse(JSON.stringify(heldPiece));
-        heldPiece = JSON.parse(JSON.stringify(currentPiece));
-        currentPiece = temp;
+        const temp = JSON.parse(JSON.stringify(currentPiece));
+        currentPiece = JSON.parse(JSON.stringify(heldPiece));
+        heldPiece = temp;
       }
       currentPiece.x = Math.floor(COLS / 2) - Math.floor(currentPiece.shape[0].length / 2);
       currentPiece.y = 0;
-      holdUsed = true;
       drawHoldPiece();
     }
 
@@ -261,7 +257,6 @@
           }
         });
       });
-      holdUsed = false;
     }
 
     function clearLines() {
@@ -322,7 +317,7 @@
         dropCounter = 0;
       }
       if (e.code === 'ArrowUp') rotate(currentPiece);
-      if (e.code === 'PageUp') holdCurrentPiece();
+      if (e.code === 'PageUp' || e.code === 'ShiftLeft') holdCurrentPiece();
       if (e.code === 'Space') {
         while (!collide(currentPiece, 0, 1)) currentPiece.y++;
         merge();
@@ -336,7 +331,6 @@
     restartButton.addEventListener('click', () => { resetGame(); update(); });
     restartGameButton.addEventListener('click', () => { resetGame(); update(); });
 
-    // Enable clicking the hold canvas to activate hold
     holdCanvas.addEventListener('click', () => {
       if (!gameOver && heldPiece) {
         const temp = JSON.parse(JSON.stringify(currentPiece));
