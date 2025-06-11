@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Tower Stack Game</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+      background: radial-gradient(circle at top, #87cefa, #1e90ff);
+    }
+    #gameLink {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      color: #1e21bc;
+      font-size: 18px;
+      text-decoration: none;
+      text-shadow: 0 0 10px #115ac1;
+      padding: 5px 10px;
+      border: 2px solid #afd508;
+      border-radius: 5px;
+      transition: all 0.3s;
+    }
+
+#gameLink:hover {
+  background: #d3be04c2;
+  color: #196dc7;
+  box-shadow: 0 0 15px #ced9007b;
+}
+
+    #container {
+      width: 400px;
+      height: 600px;
+      margin: 0 auto;
+      overflow: hidden;
+      position: relative;
+      border: 2px solid #555;
+      background: url('https://th.bing.com/th/id/R.defba51254d74cfb6269fa92ee6ac548?rik=ewecYBOJObRzmA&pid=ImgRaw&r=0') no-repeat center top;
+      background-size: cover;
+    }
+    #game {
+      position: absolute;
+      width: 100%;
+    }
+    .block {
+      position: absolute;
+      height: 30px;
+      background: repeating-linear-gradient(
+        45deg,
+        #f39c12,
+        #f39c12 10px,
+        #e67e22 10px,
+        #e67e22 20px
+      );
+      border: 2px solid #c0392b;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+    }
+    #score {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      font-size: 20px;
+      color: white;
+      background: rgba(0, 0, 0, 0.5);
+      padding: 5px 10px;
+      border-radius: 8px;
+      z-index: 20;
+    }
+    #gameOver {
+      position: absolute;
+      top: 40%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: white;
+      text-align: center;
+      padding: 20px;
+      font-size: 24px;
+      display: none;
+      background: rgba(0, 0, 0, 0.8);
+      border-radius: 10px;
+      z-index: 10;
+    }
+    button {
+      margin-top: 10px;
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+        <a id="gameLink" href="index.html">Game Menu</a>
+
+  <div id="container">
+    <div id="score">Score: 0</div>
+    <div id="game">
+      <div id="gameOver">Game Over<br><button onclick="location.reload()">Restart</button></div>
+    </div>
+  </div>
+
+  <script>
+    const container = document.getElementById("container");
+    const game = document.getElementById("game");
+    const gameOver = document.getElementById("gameOver");
+    const scoreDisplay = document.getElementById("score");
+
+    let stack = [];
+    let currentBlock;
+    let blockWidth = 300;
+    let blockHeight = 30;
+    let baseY = 570;
+    let direction = 1;
+    let speed = 3;
+    let animation;
+    let left = 0;
+    let score = 0;
+
+    function createBlock(width, left, top) {
+      const block = document.createElement("div");
+      block.classList.add("block");
+      block.style.width = width + "px";
+      block.style.left = left + "px";
+      block.style.top = top + "px";
+      game.appendChild(block);
+      return block;
+    }
+
+    function startGame() {
+      const base = createBlock(blockWidth, 50, baseY);
+      stack.push(base);
+      addBlock();
+    }
+
+    function addBlock() {
+      const last = stack[stack.length - 1];
+      const newY = baseY - stack.length * blockHeight;
+      currentBlock = createBlock(
+        last.offsetWidth,
+        0,
+        newY
+      );
+      left = 0;
+      direction = 1;
+      shiftCamera(newY);
+      requestAnimationFrame(moveBlock);
+    }
+
+    function moveBlock() {
+      const maxLeft = container.clientWidth - currentBlock.offsetWidth;
+      left += direction * speed;
+      if (left <= 0 || left >= maxLeft) direction *= -1;
+      currentBlock.style.left = left + "px";
+      animation = requestAnimationFrame(moveBlock);
+    }
+
+    function stopBlock() {
+      cancelAnimationFrame(animation);
+      const prev = stack[stack.length - 1];
+      const prevLeft = prev.offsetLeft;
+      const prevWidth = prev.offsetWidth;
+      const currLeft = currentBlock.offsetLeft;
+      const currWidth = currentBlock.offsetWidth;
+
+      const delta = currLeft - prevLeft;
+      const overlap = prevWidth - Math.abs(delta);
+
+      if (overlap <= 0) {
+        gameOver.style.display = "block";
+        return;
+      }
+
+      currentBlock.style.width = overlap + "px";
+      currentBlock.style.left = delta >= 0 ? currLeft + "px" : prevLeft + "px";
+
+      stack.push(currentBlock);
+      score++;
+      scoreDisplay.textContent = "Score: " + score;
+      speed += 0.1;
+      addBlock();
+    }
+
+    function shiftCamera(newY) {
+      const offset = Math.min(0, newY - 60);
+      game.style.transform = `translateY(${-offset}px)`;
+    }
+
+    window.addEventListener("keydown", stopBlock);
+    window.addEventListener("click", stopBlock);
+
+    startGame();
+  </script>
+</body>
+</html>
