@@ -5,37 +5,69 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Game Menu</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
     body {
-      background: linear-gradient(180deg, #0d1b2a, #1b263b);
+      background: #0a0e23;
+      background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"><filter id="noise"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(#noise)" opacity="0.2"/></svg>');
       display: flex;
-      flex-direction: column;
       justify-content: center;
       align-items: center;
       height: 100vh;
       font-family: 'Orbitron', sans-serif;
       overflow: hidden;
+      position: relative;
+    }
+
+    body::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"><circle cx="20" cy="20" r="1" fill="#00ccff" opacity="0.4"/><circle cx="60" cy="60" r="1.5" fill="#00ccff" opacity="0.3"/><circle cx="120" cy="30" r="1" fill="#00ccff" opacity="0.5"/><circle cx="180" cy="90" r="1.2" fill="#00ccff" opacity="0.6"/></svg>');
+      animation: subtleTwinkle 4s infinite ease-in-out;
+      opacity: 0.3;
+    }
+
+    @keyframes subtleTwinkle {
+      0%, 100% { opacity: 0.3; }
+      50% { opacity: 0.15; }
     }
 
     #menuContainer {
       text-align: center;
-      background: rgba(0, 29, 61, 0.7);
-      padding: 40px;
-      border-radius: 12px;
-      box-shadow: 0 0 30px #00ddeb;
+      background: rgba(0, 20, 40, 0.9);
+      padding: 50px;
+      border-radius: 15px;
+      box-shadow: 0 0 60px rgba(0, 204, 255, 0.5), inset 0 0 20px rgba(0, 204, 255, 0.2);
+      border: 2px solid #00ccff;
+      backdrop-filter: blur(12px);
     }
 
     h1 {
-      color: #00ddeb;
-      font-size: 36px;
-      text-shadow: 0 0 15px #00ddeb;
-      margin-bottom: 30px;
+      color: #00ccff;
+      font-size: 52px;
+      text-shadow: 0 0 20px #00ccff, 0 0 40px #00ccff;
+      margin-bottom: 40px;
+      letter-spacing: 2px;
+      animation: steadyGlow 2s infinite ease-in-out;
+    }
+
+    @keyframes steadyGlow {
+      0%, 100% { text-shadow: 0 0 20px #00ccff, 0 0 40px #00ccff; }
+      50% { text-shadow: 0 0 30px #00ccff, 0 0 60px #00ccff; }
     }
 
     #gameLists {
       display: flex;
       justify-content: center;
-      gap: 40px;
+      gap: 50px;
       flex-wrap: wrap;
     }
 
@@ -45,44 +77,62 @@
     }
 
     .gameButton {
-      margin: 10px 0;
-      padding: 12px 24px;
-      font-size: 20px;
-      color: #ff2e63;
+      margin: 12px 0;
+      padding: 15px 30px;
+      font-size: 22px;
+      color: #00ccff;
       background: transparent;
-      border: 2px solid #ff2e63;
-      border-radius: 6px;
-      text-shadow: 0 0 10px #ff2e63;
+      border: 2px solid #00ccff;
+      border-radius: 10px;
+      text-shadow: 0 0 10px #00ccff;
       cursor: pointer;
-      transition: all 0.3s;
+      transition: all 0.3s ease;
       font-family: 'Orbitron', sans-serif;
       text-decoration: none;
-      animation: pulse 2s infinite;
+      position: relative;
+      overflow: hidden;
+      z-index: 1;
+    }
+
+    .gameButton::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: #00ccff;
+      opacity: 0.2;
+      transition: left 0.4s ease;
+      z-index: -1;
+    }
+
+    .gameButton:hover::before {
+      left: 0;
     }
 
     .gameButton:hover {
-      background: #ff2e63;
-      color: #0d1b2a;
-      box-shadow: 0 0 15px #ff2e63;
+      color: #0a0e23;
+      box-shadow: 0 0 25px #00ccff, 0 0 50px #00ccff;
+      transform: translateY(-4px);
+      background: #00ccff;
     }
 
-    @keyframes pulse {
-      0% { opacity: 0.7; }
-      50% { opacity: 1; }
-      100% { opacity: 0.7; }
+    .gameButton:active {
+      transform: translateY(0);
     }
 
     @media (max-width: 600px) {
       #gameLists {
         flex-direction: column;
-        gap: 20px;
+        gap: 30px;
       }
     }
 
     @media (max-width: 500px) {
-      h1 { font-size: 28px; }
-      .gameButton { font-size: 16px; padding: 10px 20px; }
-      #menuContainer { padding: 20px; }
+      h1 { font-size: 34px; }
+      .gameButton { font-size: 18px; padding: 12px 25px; }
+      #menuContainer { padding: 30px; }
     }
   </style>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet" />
@@ -97,10 +147,8 @@
         <a class="gameButton" href="dash3.html">Tic-Tac-Toe</a>
         <a class="gameButton" href="dash4.html">Tetris</a>
         <a class="gameButton" href="dash5.html">Car Chase</a>
-       <a class="gameButton" href="dash12.html">Head soccer</a>
+        <a class="gameButton" href="dash12.html">Head Soccer</a>
         <a class="gameButton" href="dash13.html">Black Jack</a>
-
-
       </div>
       <div class="column">
         <a class="gameButton" href="dash6.html">Snake</a>
@@ -110,17 +158,15 @@
         <a class="gameButton" href="dash10.html">Xonic</a>
         <a class="gameButton" href="dash11.html">Basketball</a>
         <a class="gameButton" href="dash14.html">AGAR IO</a>
-
       </div>
-       <div class="column">
-        <a class="gameButton" href="dash19.html">Ninja Stick hero</a>
-        <a class="gameButton" href="dash16.html">Core ball</a>
+      <div class="column">
+        <a class="gameButton" href="dash19.html">Ninja Stick Hero</a>
+        <a class="gameButton" href="dash16.html">Core Ball</a>
         <a class="gameButton" href="dash17.html">Breakout</a>
         <a class="gameButton" href="dash18.html">Minesweeper</a>
-        <a class="gameButton" href="dash20.html">like dino</a>
-
-        
-
+        <a class="gameButton" href="dash20.html">Like Dino</a>
+        <a class="gameButton" href="dash21.html">Touwer build</a>
+        <a class="gameButton" href="dash22.html">Dragon</a>
 
       </div>
     </div>
