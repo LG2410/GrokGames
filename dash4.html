@@ -312,12 +312,13 @@
       if (gameOver) return;
       if (e.code === 'ArrowLeft' && !collide(currentPiece, -1, 0)) currentPiece.x--;
       if (e.code === 'ArrowRight' && !collide(currentPiece, 1, 0)) currentPiece.x++;
+      if (e.key === 'z' || e.key === 'Z') rotateLeft(currentPiece);   
+
       if (e.code === 'ArrowDown' && !collide(currentPiece, 0, 1)) {
         currentPiece.y++;
         dropCounter = 0;
       }
       if (e.code === 'ArrowUp') rotate(currentPiece);
-      if (e.key === 'z' || e.key === 'Z') rotateLeft(currentPiece);   
       if (e.code === 'PageUp' || e.code === 'ShiftLeft') holdCurrentPiece();
       if (e.code === 'Space') {
         while (!collide(currentPiece, 0, 1)) currentPiece.y++;
