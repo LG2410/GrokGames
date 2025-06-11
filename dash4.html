@@ -317,6 +317,7 @@
         dropCounter = 0;
       }
       if (e.code === 'ArrowUp') rotate(currentPiece);
+      if (e.key === 'z' || e.key === 'Z') rotateLeft(currentPiece);   
       if (e.code === 'PageUp' || e.code === 'ShiftLeft') holdCurrentPiece();
       if (e.code === 'Space') {
         while (!collide(currentPiece, 0, 1)) currentPiece.y++;
@@ -349,9 +350,16 @@
         draw();
       }
     });
-
+function rotateLeft(piece) {
+  const newShape = piece.shape[0].map((_, i) => piece.shape.map(r => r[r.length - 1 - i]));
+  const test = { ...piece, shape: newShape };
+  if (!collide(test)) {
+    piece.shape = newShape;
+  }
+}
     resetGame();
     update();
   </script>
 </body>
 </html>
+
